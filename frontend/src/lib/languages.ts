@@ -64,6 +64,11 @@ export const COURSES: Course[] = [
   course("zu", "Zulu"),
 ];
 
+const FLAG_CODES = new Set<string>(COURSES.map((course) => course.flag));
+
+/** Narrows a course code from the API to one we have a flag image for. */
+export const isFlagCode = (code: string): code is FlagCode => FLAG_CODES.has(code);
+
 export type SiteLanguage = {
   id: string;
   nativeName: string;

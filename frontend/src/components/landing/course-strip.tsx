@@ -48,7 +48,7 @@ function CourseItem({ course }: { course: Course }) {
   );
 
   return course.available ? (
-    <Link href="/learn" className={itemClasses}>
+    <Link href="/welcome" className={itemClasses}>
       {content}
     </Link>
   ) : (

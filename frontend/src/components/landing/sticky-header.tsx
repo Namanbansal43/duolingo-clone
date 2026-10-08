@@ -39,7 +39,7 @@ export function StickyHeader({ heroCtaId }: StickyHeaderProps) {
           <Logo className="hidden md:block" />
           <Logo variant="icon" className="md:hidden" />
         </Link>
-        <Link href="/learn" className={buttonClasses({ size: "md" })}>
+        <Link href="/welcome" className={buttonClasses({ size: "md" })}>
           Get started
         </Link>
       </div>

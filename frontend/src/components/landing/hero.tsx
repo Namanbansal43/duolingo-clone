@@ -35,7 +35,7 @@ export function Hero({ ctaId }: { ctaId: string }) {
       </h1>
 
       <div id={ctaId} className="flex w-full max-w-[330px] flex-col gap-3 pb-5 [grid-area:cta] md:mt-10 md:pb-0">
-        <Link href="/learn" className={buttonClasses({ size: "lg", fullWidth: true })}>
+        <Link href="/welcome" className={buttonClasses({ size: "lg", fullWidth: true })}>
           Get started
         </Link>
         <Link href="/learn" className={buttonClasses({ variant: "outline", size: "lg", fullWidth: true })}>

@@ -28,7 +28,7 @@ export function FinalCta() {
         <h2 className="font-display text-[40px] font-semibold leading-[1.15] tracking-[-0.02em] text-duo-green md:text-[66px] md:leading-[80px] md:tracking-normal">
           learn a language with {siteConfig.name}
         </h2>
-        <Link href="/learn" className={buttonClasses({ size: "lg", className: "w-full max-w-[330px]" })}>
+        <Link href="/welcome" className={buttonClasses({ size: "lg", className: "w-full max-w-[330px]" })}>
           Get started
         </Link>
       </div>
