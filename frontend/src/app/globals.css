@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ * Colours mirror Duolingo's palette. Every component reads these tokens,
+ * so a dark theme later only needs to redefine them in one place.
+ */
+@theme {
+  /* Free stand-ins for Duolingo's own typefaces: Signika for "duolingo-sans", Fredoka for "feather". */
+  --font-sans: var(--font-signika), "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-fredoka), var(--font-signika), sans-serif;
+
+  --color-duo-green: #58cc02;
+  --color-duo-green-hover: #61e002;
+  --color-duo-green-shade: #58a700;
+  --color-duo-green-tint: #d7ffb8;
+  --color-duo-lime: #89e219;
+
+  --color-duo-blue: #1cb0f6;
+  --color-duo-blue-hover: #3fbef8;
+  --color-duo-blue-shade: #1899d6;
+  --color-duo-blue-tint: #ddf4ff;
+  --color-duo-blue-border: #84d8ff;
+
+  --color-duo-red: #ff4b4b;
+  --color-duo-red-shade: #ea2b2b;
+  --color-duo-red-tint: #ffdfe0;
+
+  --color-duo-gold: #ffc800;
+  --color-duo-gold-shade: #e5a400;
+  --color-duo-orange: #ff9600;
+  --color-duo-orange-shade: #cd7900;
+  --color-duo-purple: #ce82ff;
+  --color-duo-purple-shade: #a568cc;
+
+  --color-duo-green-soft: #a5ed6e;
+  --color-duo-navy: #042c60;
+  --color-super-night: #100f3e;
+  --color-super-ink: #000437;
+  --color-super-ledge: #88879f;
+
+  --color-ink: #4b4b4b;
+  --color-ink-soft: #777777;
+  --color-ink-faint: #afafaf;
+  --color-line: #e5e5e5;
+  --color-snow: #f7f7f7;
+}
+
+@layer base {
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-duo-blue-tint);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
