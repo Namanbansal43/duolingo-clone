@@ -5,7 +5,7 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 | Part | Stack | Status |
 | --- | --- | --- |
 | `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page done |
-| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Built-in learner, `/me` and `/courses` |
+| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full database schema; `/me` and `/courses` API |
 
 ## Running the backend
 
@@ -36,6 +36,11 @@ cd frontend
 npm install
 npm run dev   # http://localhost:3000
 ```
+
+## Database
+
+16 tables covering course content, learner progress, lesson history, XP and achievements. The ER diagram,
+the rules the database enforces and the design decisions are in [docs/DATABASE.md](docs/DATABASE.md).
 
 ## The logged-in learner
 
