@@ -111,3 +111,13 @@ def test_me_reports_a_missing_learner(settings: Settings, clock: FixedClock) -> 
 
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "learner_missing"
+
+
+@pytest.mark.parametrize("payload", [{}, {"daily_goal_xp": None, "timezone": None}], ids=["empty", "nulls"])
+def test_omitted_or_null_fields_are_left_unchanged(client: TestClient, payload: dict) -> None:
+    before = client.get("/api/v1/me").json()
+
+    response = client.patch("/api/v1/me", json=payload)
+
+    assert response.status_code == 200
+    assert response.json() == before

@@ -1,5 +1,7 @@
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.deps import get_current_user
 from app.seed import data
 
 
@@ -20,3 +22,28 @@ def test_unknown_route_uses_the_error_envelope(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"error": {"code": "not_found", "message": "Not Found"}}
+
+
+def test_unexpected_errors_use_the_error_envelope(app: FastAPI) -> None:
+    def broken_user() -> None:
+        raise RuntimeError("database on fire")
+
+    app.dependency_overrides[get_current_user] = broken_user
+    with TestClient(app, raise_server_exceptions=False) as client:
+        response = client.get("/api/v1/me")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": {"code": "internal_error", "message": "Something went wrong on our side."}
+    }
+
+
+def test_openapi_documents_the_real_error_shape(client: TestClient) -> None:
+    spec = client.get("/openapi.json").json()
+    patch_me = spec["paths"]["/api/v1/me"]["patch"]["responses"]
+
+    for status in ("404", "409", "422", "503"):
+        assert patch_me[status]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorOut"
+        }
+    assert "HTTPValidationError" not in spec["components"]["schemas"]  # FastAPI's default shape isn't ours

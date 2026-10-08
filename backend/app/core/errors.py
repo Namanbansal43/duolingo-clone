@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed"}
@@ -19,11 +20,28 @@ class AppError(Exception):
         self.message = message
 
 
+class ErrorBody(BaseModel):
+    code: str = Field(description="Stable machine-readable code.", examples=["course_unavailable"])
+    message: str = Field(description="Human-readable explanation.", examples=["French is coming soon."])
+    details: Any | None = Field(
+        default=None, description="Only for validation_error: one entry per invalid field."
+    )
+
+
+class ErrorOut(BaseModel):
+    """The body of every error response."""
+
+    error: ErrorBody
+
+
+def error_response(description: str) -> dict[str, Any]:
+    """An OpenAPI `responses` entry for an error status, so /docs shows the real error shape."""
+    return {"model": ErrorOut, "description": description}
+
+
 def _error(status_code: int, code: str, message: str, details: Any = None) -> JSONResponse:
-    body: dict[str, Any] = {"code": code, "message": message}
-    if details is not None:
-        body["details"] = details
-    return JSONResponse(status_code=status_code, content={"error": body})
+    body = ErrorOut(error=ErrorBody(code=code, message=message, details=details))
+    return JSONResponse(status_code=status_code, content=body.model_dump(exclude_none=True))
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -40,3 +58,8 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
         return _error(exc.status_code, _HTTP_CODES.get(exc.status_code, "http_error"), str(exc.detail))
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(_request: Request, _exc: Exception) -> JSONResponse:
+        # Starlette re-raises the exception after sending this response, so the server still logs it.
+        return _error(500, "internal_error", "Something went wrong on our side.")

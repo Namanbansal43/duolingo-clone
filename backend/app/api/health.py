@@ -1,4 +1,7 @@
+from typing import Literal
+
 from fastapi import APIRouter
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.deps import DbSession
@@ -6,7 +9,12 @@ from app.deps import DbSession
 router = APIRouter(tags=["health"])
 
 
-@router.get("/api/health")
-def health(db: DbSession) -> dict[str, str]:
+class HealthOut(BaseModel):
+    status: Literal["ok"]
+
+
+@router.get("/api/health", response_model=HealthOut)
+def health(db: DbSession) -> HealthOut:
+    """Liveness check: answers only if the API can reach the database."""
     db.execute(text("SELECT 1"))
-    return {"status": "ok"}
+    return HealthOut(status="ok")

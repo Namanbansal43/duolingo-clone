@@ -10,26 +10,28 @@ DailyGoal = Literal[10, 20, 30, 50]
 
 
 class HeartsOut(BaseModel):
-    current: int
+    current: int = Field(description="Hearts right now, including any regenerated since they were spent.")
     max: int
-    next_heart_at: datetime | None
-    regen_minutes: int
+    next_heart_at: datetime | None = Field(description="When the next heart comes back; null when full.")
+    regen_minutes: int = Field(description="Minutes it takes to regenerate one heart.")
 
 
 class StreakOut(BaseModel):
-    length: int
-    extended_today: bool
-    longest: int
+    length: int = Field(description="Current streak in days; 0 once a day has been missed.")
+    extended_today: bool = Field(description="Whether today (in the learner's time zone) already counts.")
+    longest: int = Field(description="Longest streak ever reached.")
 
 
 class MeOut(BaseModel):
+    """The logged-in learner with live stats."""
+
     id: int
     username: str
     display_name: str
     joined_at: datetime
-    timezone: str
+    timezone: str = Field(description="IANA time zone; decides when the learner's day starts.")
     active_course: CourseOut | None
-    daily_goal_xp: DailyGoal
+    daily_goal_xp: DailyGoal = Field(description="XP per day: 10 Casual, 20 Regular, 30 Serious, 50 Intense.")
     total_xp: int
     gems: int
     hearts: HeartsOut
@@ -41,9 +43,11 @@ class MeUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    active_course_id: int | None = None
+    active_course_id: int | None = Field(default=None, description="An available course's id.")
     daily_goal_xp: DailyGoal | None = None
-    timezone: str | None = Field(default=None, max_length=64)
+    timezone: str | None = Field(
+        default=None, max_length=64, description="IANA time zone name.", examples=["Asia/Kolkata"]
+    )
 
     @field_validator("timezone")
     @classmethod

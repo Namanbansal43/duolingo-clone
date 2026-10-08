@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.core.clock import Clock
 from app.core.config import Settings
+from app.core.errors import error_response
 from app.deps import ClockDep, CurrentUser, DbSession, SettingsDep
 from app.models import User
 from app.schemas.course import CourseOut
@@ -12,7 +13,11 @@ from app.services.hearts import hearts_status
 from app.services.learner import update_learner
 from app.services.streak import local_date, streak_status
 
-router = APIRouter(prefix="/me", tags=["me"])
+router = APIRouter(
+    prefix="/me",
+    tags=["me"],
+    responses={503: error_response("`learner_missing`: the default learner has not been seeded.")},
+)
 
 
 @router.get("", response_model=MeOut)
@@ -21,7 +26,15 @@ def get_me(user: CurrentUser, clock: ClockDep, settings: SettingsDep) -> MeOut:
     return _me_out(user, clock, settings)
 
 
-@router.patch("", response_model=MeOut)
+@router.patch(
+    "",
+    response_model=MeOut,
+    responses={
+        404: error_response("`course_not_found`: no course has that id."),
+        409: error_response("`course_unavailable`: that course is coming soon."),
+        422: error_response("`validation_error`: a field is invalid or not editable; see `details`."),
+    },
+)
 def update_me(
     changes: MeUpdate, user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep
 ) -> MeOut:

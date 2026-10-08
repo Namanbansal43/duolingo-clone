@@ -13,6 +13,14 @@ from app.core.db import create_db_engine, run_migrations
 from app.core.errors import register_error_handlers
 from app.seed import seed_database
 
+API_DESCRIPTION = """
+There is no login: the brief assumes a logged-in user, so every request acts as the built-in learner.
+
+Every error response has the shape `{"error": {"code", "message", "details"?}}`.
+Times are ISO 8601 in UTC, for example `2026-10-08T12:25:00Z`.
+A Markdown version of this reference is in `docs/API.md`.
+"""
+
 
 def create_app(settings: Settings | None = None, clock: Clock | None = None) -> FastAPI:
     """Build the API. Run with: uvicorn app.main:create_app --factory --reload"""
@@ -31,7 +39,17 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         yield
         engine.dispose()
 
-    app = FastAPI(title="Duolingo Clone API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Duolingo Clone API",
+        version="0.1.0",
+        description=API_DESCRIPTION,
+        openapi_tags=[
+            {"name": "me", "description": "The logged-in learner: profile, live stats and preferences."},
+            {"name": "courses", "description": "The course catalogue."},
+            {"name": "health", "description": "Liveness check."},
+        ],
+        lifespan=lifespan,
+    )
     app.state.settings = settings
     app.state.clock = clock
     app.state.session_factory = session_factory
