@@ -50,7 +50,7 @@ only code that decides who "me" is. Adding real authentication would mean replac
 
 On a shared demo deployment, every visitor therefore sees and changes the same learner.
 
-## API so far
+## API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -59,6 +59,8 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | PATCH | `/api/v1/me` | Set the active course, daily goal (10/20/30/50 XP) or time zone |
 | GET | `/api/v1/courses` | All courses in display order; only Spanish is available |
 
+Every request and response, with real examples and every error code, is documented in
+[docs/API.md](docs/API.md). With the backend running, `/docs` serves the same reference interactively.
 Errors always have the shape `{"error": {"code": "...", "message": "...", "details": ...}}`.
 
 ## Brand assets
