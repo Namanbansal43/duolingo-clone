@@ -82,6 +82,14 @@ Each entry in `details` describes one problem:
 | `title` | string | Display name, e.g. `Spanish` |
 | `is_available` | boolean | `false` means the course is shown as "coming soon" and can't be selected |
 
+### Catalogue course
+
+A [Course](#course) with one extra field, returned by `GET /api/v1/courses`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `learners` | integer | Learners whose active course this is. Shown on the course picker ("1 learner"). |
+
 ### Me
 
 The learner, with stats as they are right now.
@@ -332,12 +340,13 @@ curl -X PATCH http://localhost:8000/api/v1/me \
 
 ## GET /api/v1/courses
 
-Every course in display order, the same order as the course strip on the landing page. Only Spanish has content;
-the other 38 are returned with `is_available: false` so the UI can show them as "coming soon".
+Every course in display order, the same order as the course strip on the landing page, with how many learners
+study each one. Only Spanish has content; the other 38 are returned with `is_available: false` so the UI can show
+them as "coming soon". Used by the course picker of the "Get started" flow.
 
 **Request:** no parameters, no body.
 
-**Response `200 OK`:** an array of [Course](#course) objects (39 today). The first three:
+**Response `200 OK`:** an array of [Catalogue course](#catalogue-course) objects (39 today). The first three:
 
 ```json
 [
@@ -346,21 +355,24 @@ the other 38 are returned with `is_available: false` so the UI can show them as 
     "learning_language": "es",
     "from_language": "en",
     "title": "Spanish",
-    "is_available": true
+    "is_available": true,
+    "learners": 1
   },
   {
     "id": 2,
     "learning_language": "fr",
     "from_language": "en",
     "title": "French",
-    "is_available": false
+    "is_available": false,
+    "learners": 0
   },
   {
     "id": 3,
     "learning_language": "de",
     "from_language": "en",
     "title": "German",
-    "is_available": false
+    "is_available": false,
+    "learners": 0
   }
 ]
 ```

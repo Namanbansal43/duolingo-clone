@@ -1,14 +1,16 @@
 from fastapi import APIRouter
-from sqlalchemy import select
 
 from app.deps import DbSession
-from app.models import Course
-from app.schemas.course import CourseOut
+from app.schemas.course import CatalogCourseOut, CourseOut
+from app.services.courses import catalogue
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
 
-@router.get("", response_model=list[CourseOut])
-def list_courses(db: DbSession) -> list[Course]:
-    """Every course, in display order. Unavailable ones are shown as "coming soon"."""
-    return list(db.scalars(select(Course).order_by(Course.position)))
+@router.get("", response_model=list[CatalogCourseOut])
+def list_courses(db: DbSession) -> list[CatalogCourseOut]:
+    """Every course in display order, with its learner count. Unavailable ones are shown as "coming soon"."""
+    return [
+        CatalogCourseOut(**CourseOut.model_validate(course).model_dump(), learners=learners)
+        for course, learners in catalogue(db)
+    ]

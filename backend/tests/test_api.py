@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.deps import get_current_user
+from app.models import User
 from app.seed import data
+from tests.conftest import FixedClock
 
 
 def test_health(client: TestClient) -> None:
@@ -15,6 +18,25 @@ def test_courses_in_display_order_with_only_spanish_available(client: TestClient
     assert len(courses) == len(data.COURSES)
     assert [c["learning_language"] for c in courses[:3]] == ["es", "fr", "de"]
     assert [c["title"] for c in courses if c["is_available"]] == ["Spanish"]
+
+
+def test_courses_count_the_learners_studying_them(client: TestClient, db: Session, clock: FixedClock) -> None:
+    spanish, french = client.get("/api/v1/courses").json()[:2]
+    assert (spanish["learners"], french["learners"]) == (1, 0)  # the built-in learner studies Spanish
+
+    db.add_all(
+        User(
+            username=f"rival{i}",
+            display_name=f"Rival {i}",
+            created_at=clock.now(),
+            hearts_updated_at=clock.now(),
+            active_course_id=spanish["id"],
+        )
+        for i in range(2)
+    )
+    db.commit()
+
+    assert client.get("/api/v1/courses").json()[0]["learners"] == 3
 
 
 def test_unknown_route_uses_the_error_envelope(client: TestClient) -> None:
