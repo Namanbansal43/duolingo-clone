@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.main import create_app
-from app.models import User
+from app.models import AcceptedAnswer, Course, Exercise, ExerciseType, Lesson, Skill, Unit, User
 
 NOW = datetime(2026, 10, 8, 12, 0, tzinfo=UTC)
 
@@ -59,3 +59,24 @@ def db(app: FastAPI, client: TestClient) -> Iterator[Session]:
 @pytest.fixture
 def learner(db: Session, settings: Settings) -> User:
     return db.scalars(select(User).where(User.username == settings.default_username)).one()
+
+
+@pytest.fixture
+def lesson(db: Session) -> Lesson:
+    """A one-lesson path in the seeded Spanish course: unit > skill > lesson > one exercise."""
+    spanish = db.scalars(select(Course).where(Course.learning_language == "es")).one()
+    unit = Unit(course=spanish, position=1, title="Order food and drink")
+    skill = Skill(unit=unit, position=1, title="Café")
+    lesson = Lesson(skill=skill, position=1)
+    lesson.exercises.append(
+        Exercise(
+            position=1,
+            type=ExerciseType.TYPE_ANSWER,
+            prompt="Un café, por favor.",
+            prompt_language="es",
+            accepted_answers=[AcceptedAnswer(text="A coffee, please.", is_primary=True)],
+        )
+    )
+    db.add(unit)
+    db.commit()
+    return lesson
