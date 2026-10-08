@@ -1,7 +1,9 @@
 import { CourseStrip } from "@/components/landing/course-strip";
 import { EnglishTestSection } from "@/components/landing/english-test-section";
 import { FeatureSections } from "@/components/landing/feature-sections";
+import { FinalCta } from "@/components/landing/final-cta";
 import { Hero } from "@/components/landing/hero";
+import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteHeader } from "@/components/landing/site-header";
 import { StickyHeader } from "@/components/landing/sticky-header";
 import { SuperSection } from "@/components/landing/super-section";
@@ -20,7 +22,9 @@ export default function LandingPage() {
         <FeatureSections />
         <SuperSection />
         <EnglishTestSection />
+        <FinalCta />
       </main>
+      <SiteFooter />
     </div>
   );
 }
