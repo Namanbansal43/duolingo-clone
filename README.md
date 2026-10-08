@@ -29,6 +29,15 @@ step. Other commands, run from `backend/`:
 
 Settings come from environment variables or `backend/.env`; see `backend/.env.example`.
 
+Troubleshooting:
+
+- **Activate the virtual environment in every new terminal** (`.venv\Scripts\activate`; the prompt then starts
+  with `(.venv)`). Otherwise a globally installed `uvicorn` may run without the project's packages and fail with
+  `ModuleNotFoundError`. Alternatively, skip activation and run `.venv\Scripts\python -m uvicorn ...`.
+- **`[WinError 10013]` or "address already in use"** means something is already listening on port 8000, usually
+  an earlier backend still running. Stop it, or start this one with `--port 8001` and point the frontend at it
+  with `API_URL=http://localhost:8001` in `frontend/.env.local`.
+
 ## Running the frontend
 
 ```bash
