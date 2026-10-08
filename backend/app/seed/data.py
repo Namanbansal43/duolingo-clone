@@ -63,3 +63,8 @@ ACHIEVEMENTS: list[tuple[str, str, str, str, tuple[int, ...]]] = [
         (3, 10, 25, 50),
     ),
 ]
+
+# The built-in learner starts with a little history so the path, streak and XP have something to show:
+# (days before the first seed, lessons finished that day). Four lessons: all of "Say hello" and the
+# first of "Introduce yourself", on three consecutive days ending yesterday.
+DEMO_HISTORY: list[tuple[int, int]] = [(3, 2), (2, 1), (1, 1)]

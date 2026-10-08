@@ -63,9 +63,9 @@ def learner(db: Session, settings: Settings) -> User:
 
 @pytest.fixture
 def lesson(db: Session) -> Lesson:
-    """A one-lesson path in the seeded Spanish course: unit > skill > lesson > one exercise."""
+    """A test-only unit at the end of the Spanish course: unit > skill > lesson > one exercise."""
     spanish = db.scalars(select(Course).where(Course.learning_language == "es")).one()
-    unit = Unit(course=spanish, position=1, title="Order food and drink")
+    unit = Unit(course=spanish, position=99, title="Test unit")
     skill = Skill(unit=unit, position=1, title="Café")
     lesson = Lesson(skill=skill, position=1)
     lesson.exercises.append(

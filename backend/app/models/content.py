@@ -16,6 +16,7 @@ from app.models.base import Base, one_of
 class SkillKind(StrEnum):
     LESSON = "lesson"  # a node with lessons to play
     CHEST = "chest"  # a treasure chest that pays out gems
+    REVIEW = "review"  # the trophy that ends a unit: lessons mixing everything in it
 
 
 class ExerciseType(StrEnum):

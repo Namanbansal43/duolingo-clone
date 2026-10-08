@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from fastapi import APIRouter
+from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
 from app.core.config import Settings
@@ -10,7 +11,7 @@ from app.models import User
 from app.schemas.course import CourseOut
 from app.schemas.me import HeartsOut, MeOut, MeUpdate, StreakOut
 from app.services.hearts import hearts_status
-from app.services.learner import update_learner
+from app.services.learner import lessons_completed, update_learner, xp_earned_on
 from app.services.streak import local_date, streak_status
 
 router = APIRouter(
@@ -21,9 +22,9 @@ router = APIRouter(
 
 
 @router.get("", response_model=MeOut)
-def get_me(user: CurrentUser, clock: ClockDep, settings: SettingsDep) -> MeOut:
-    """The logged-in learner with live stats: hearts after regeneration, streak as of today."""
-    return _me_out(user, clock, settings)
+def get_me(user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep) -> MeOut:
+    """The logged-in learner with live stats: hearts after regeneration, streak and XP as of today."""
+    return _me_out(db, user, clock, settings)
 
 
 @router.patch(
@@ -40,11 +41,12 @@ def update_me(
 ) -> MeOut:
     """Set the active course, daily goal or time zone (used by onboarding and settings)."""
     update_learner(db, user, changes)
-    return _me_out(user, clock, settings)
+    return _me_out(db, user, clock, settings)
 
 
-def _me_out(user: User, clock: Clock, settings: Settings) -> MeOut:
+def _me_out(db: Session, user: User, clock: Clock, settings: Settings) -> MeOut:
     now = clock.now()
+    today = local_date(now, user.timezone)
     hearts = hearts_status(
         stored=user.hearts,
         max_hearts=user.max_hearts,
@@ -56,7 +58,7 @@ def _me_out(user: User, clock: Clock, settings: Settings) -> MeOut:
         current=user.current_streak,
         longest=user.longest_streak,
         last_date=user.last_streak_date,
-        today=local_date(now, user.timezone),
+        today=today,
     )
     return MeOut(
         id=user.id,
@@ -67,6 +69,8 @@ def _me_out(user: User, clock: Clock, settings: Settings) -> MeOut:
         active_course=CourseOut.model_validate(user.active_course) if user.active_course else None,
         daily_goal_xp=user.daily_goal_xp,
         total_xp=user.total_xp,
+        xp_today=xp_earned_on(db, user, today),
+        lessons_completed=lessons_completed(db, user),
         gems=user.gems,
         hearts=HeartsOut(
             current=hearts.current,

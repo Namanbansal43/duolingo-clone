@@ -45,7 +45,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
         description=API_DESCRIPTION,
         openapi_tags=[
             {"name": "me", "description": "The logged-in learner: profile, live stats and preferences."},
-            {"name": "courses", "description": "The course catalogue."},
+            {"name": "courses", "description": "The course catalogue and each course's learning path."},
+            {"name": "path", "description": "Actions on path nodes."},
             {"name": "health", "description": "Liveness check."},
         ],
         lifespan=lifespan,

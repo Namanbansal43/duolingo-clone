@@ -33,6 +33,10 @@ class MeOut(BaseModel):
     active_course: CourseOut | None
     daily_goal_xp: DailyGoal = Field(description="XP per day: 10 Casual, 20 Regular, 30 Serious, 50 Intense.")
     total_xp: int
+    xp_today: int = Field(
+        description="XP earned today in the learner's time zone; compare with daily_goal_xp."
+    )
+    lessons_completed: int = Field(description="Lessons finished so far, across all courses.")
     gems: int
     hearts: HeartsOut
     streak: StreakOut

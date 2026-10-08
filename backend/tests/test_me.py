@@ -19,7 +19,9 @@ def test_me_is_the_seeded_default_learner(client: TestClient) -> None:
     assert body["daily_goal_xp"] == 20
     assert body["gems"] == 500
     assert body["hearts"] == {"current": 5, "max": 5, "next_heart_at": None, "regen_minutes": 30}
-    assert body["streak"] == {"length": 0, "extended_today": False, "longest": 0}
+    # Seeded history (data.DEMO_HISTORY): 4 lessons of 10 XP on the three days before today.
+    assert (body["total_xp"], body["lessons_completed"], body["xp_today"]) == (40, 4, 0)
+    assert body["streak"] == {"length": 3, "extended_today": False, "longest": 3}
 
 
 def test_hearts_regenerate_while_away(client: TestClient, db: Session, learner: User) -> None:

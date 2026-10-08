@@ -111,10 +111,18 @@ def test_an_exercise_has_at_most_one_primary_answer(db: Session, lesson: Lesson)
 
 
 def test_deleting_a_unit_deletes_everything_beneath_it(db: Session, lesson: Lesson) -> None:
+    skill_id, exercise_id = lesson.skill_id, lesson.exercises[0].id
     db.execute(delete(Unit).where(Unit.id == lesson.skill.unit_id))
     db.commit()
 
-    assert count(db, Lesson) == count(db, Exercise) == count(db, AcceptedAnswer) == 0
+    assert db.scalar(select(func.count()).select_from(Lesson).where(Lesson.skill_id == skill_id)) == 0
+    assert (
+        db.scalar(
+            select(func.count()).select_from(AcceptedAnswer).where(AcceptedAnswer.exercise_id == exercise_id)
+        )
+        == 0
+    )
+    assert count(db, Exercise) == 0
 
 
 def test_content_with_answers_cannot_be_deleted(db: Session, lesson: Lesson, learner: User) -> None:
