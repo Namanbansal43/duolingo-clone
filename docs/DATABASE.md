@@ -57,7 +57,7 @@ erDiagram
         int unit_id FK, UK "unique with position"
         int position UK
         string title
-        string kind "lesson | chest"
+        string kind "lesson | chest | review"
     }
     lessons {
         int id PK
@@ -239,12 +239,26 @@ enforce "one correct option", and lets the server grade answers without ever sen
 - **Named constraints.** A naming convention (`backend/app/models/base.py`) gives every constraint and index a
   predictable name, so later migrations can refer to them.
 
+## Seed data
+
+The API seeds the database on startup, inserting only what is missing (`backend/app/seed/`), so restarts never
+overwrite progress. `python -m app.seed --reset` starts from scratch.
+
+| What | Details |
+| --- | --- |
+| Courses | 39 courses taught in English, in duolingo.com's order; only Spanish is available |
+| Spanish content | 3 units, each with 5 path nodes: two lesson nodes, a treasure chest, a lesson node, and a unit review (15 nodes, 33 lessons). Defined as data in `backend/app/seed/spanish.py`. |
+| Achievements | Wildfire (streak), Sage (XP), Scholar (lessons) and Sharpshooter (perfect lessons), 4 tiers each |
+| The built-in learner | `alex`, studying Spanish with a 20 XP daily goal and 500 gems |
+| Their history | 4 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak |
+
 ## Migrations
 
 | Revision | Adds |
 | --- | --- |
 | `0001` | `courses`, `users` |
 | `0002` | The other 14 tables, and `users.streak_freezes` |
+| `0003` | `review` path nodes (the trophy that ends each unit): widens the `skills.kind` CHECK |
 
 Migrations run automatically when the API starts. On SQLite, Alembic changes a table by rebuilding it: copy,
 drop the original, rename. With foreign keys on, SQLite would treat that drop as deleting every row and cascade

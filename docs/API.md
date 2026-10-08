@@ -1,7 +1,9 @@
 # API reference
 
 The backend is a FastAPI app. Every endpoint, request and response is listed below; every example is a real
-response from the API, captured with the clock fixed at `2026-10-08T12:00:00Z`.
+response from the API, captured on a freshly seeded database with the clock fixed at `2026-10-08T12:00:00Z`.
+The seed gives the built-in learner a few days of history (4 lessons finished on the 3 days before), so the
+examples show a learner partway through Unit 1.
 
 | | |
 | --- | --- |
@@ -17,6 +19,8 @@ response from the API, captured with the clock fixed at `2026-10-08T12:00:00Z`.
 | GET | [`/api/v1/me`](#get-apiv1me) | The logged-in learner with live stats |
 | PATCH | [`/api/v1/me`](#patch-apiv1me) | Change the learner's course, daily goal or time zone |
 | GET | [`/api/v1/courses`](#get-apiv1courses) | The course catalogue |
+| GET | [`/api/v1/courses/{course_id}/path`](#get-apiv1coursescourse_idpath) | A course's learning path with the learner's progress |
+| POST | [`/api/v1/skills/{skill_id}/open-chest`](#post-apiv1skillsskill_idopen-chest) | Open a treasure chest on the path |
 
 ## Conventions
 
@@ -53,19 +57,23 @@ All error codes the API returns today:
 | Status | `code` | When | Returned by |
 | --- | --- | --- | --- |
 | 404 | `not_found` | The path doesn't exist | Any URL |
-| 404 | `course_not_found` | `active_course_id` doesn't match a course | `PATCH /api/v1/me` |
+| 404 | `course_not_found` | No course has that id | `PATCH /api/v1/me`, `GET .../courses/{id}/path` |
+| 404 | `skill_not_found` | No path node has that id | `POST .../skills/{id}/open-chest` |
 | 405 | `method_not_allowed` | The path exists but not with this method | Any URL |
-| 409 | `course_unavailable` | The course exists but is "coming soon" | `PATCH /api/v1/me` |
-| 422 | `validation_error` | The body is not valid JSON, has an invalid value, or has an unknown field | `PATCH /api/v1/me` |
+| 409 | `course_unavailable` | The course exists but is "coming soon" | `PATCH /api/v1/me`, `GET .../courses/{id}/path` |
+| 409 | `not_a_chest` | The path node isn't a treasure chest | `POST .../skills/{id}/open-chest` |
+| 409 | `skill_locked` | The chest hasn't been reached yet | `POST .../skills/{id}/open-chest` |
+| 409 | `chest_already_opened` | The chest was opened before | `POST .../skills/{id}/open-chest` |
+| 422 | `validation_error` | The body is not valid JSON, has an invalid value or an unknown field, or an id in the URL isn't a whole number | `PATCH /api/v1/me`, endpoints with an id in the URL |
 | 500 | `internal_error` | An unexpected server error (the details are logged on the server, never sent) | Any endpoint |
-| 503 | `learner_missing` | The database has not been seeded with the built-in learner | `GET`, `PATCH /api/v1/me` |
+| 503 | `learner_missing` | The database has not been seeded with the built-in learner | Every endpoint that acts as the learner |
 
 Each entry in `details` describes one problem:
 
 | Field | Description |
 | --- | --- |
-| `type` | Kind of problem, e.g. `literal_error`, `extra_forbidden`, `json_invalid`, `value_error` |
-| `loc` | Where it is: `["body", "<field>"]` |
+| `type` | Kind of problem, e.g. `literal_error`, `extra_forbidden`, `json_invalid`, `value_error`, `int_parsing` |
+| `loc` | Where it is: `["body", "<field>"]`, or `["path", "<parameter>"]` for an id in the URL |
 | `msg` | What is wrong |
 | `input` | The value that was sent |
 | `ctx` | Extra context for some types, e.g. the allowed values |
@@ -104,6 +112,8 @@ The learner, with stats as they are right now.
 | `active_course` | [Course](#course) or null | The course being studied |
 | `daily_goal_xp` | integer | XP per day: `10` Casual, `20` Regular, `30` Serious, `50` Intense |
 | `total_xp` | integer | All XP ever earned |
+| `xp_today` | integer | XP earned today, in the learner's time zone. Compare with `daily_goal_xp` for the daily goal. |
+| `lessons_completed` | integer | Lessons finished so far (leaderboards open after 10) |
 | `gems` | integer | Gem balance |
 | `hearts` | [Hearts](#hearts) | Hearts right now |
 | `streak` | [Streak](#streak) | Streak as of today |
@@ -128,6 +138,39 @@ and works out the live count from the time elapsed. For example, 3 hearts stored
 | `length` | integer | Current streak in days. Reads `0` once a full day is missed. |
 | `extended_today` | boolean | Whether today already counts, in the learner's time zone |
 | `longest` | integer | Longest streak ever reached |
+
+### Path
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course` | [Course](#course) | The course this path belongs to |
+| `units` | [Path unit](#path-unit)[] | In order |
+| `active_node_id` | integer or null | The node to play next; `null` once every node is completed |
+
+### Path unit
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | integer | Unit id |
+| `position` | integer | Unit number in the course, from 1 ("Unit 1") |
+| `title` | string | e.g. "Greet people and introduce yourself" |
+| `nodes` | [Path node](#path-node)[] | In path order |
+
+### Path node
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | integer | Node (skill) id |
+| `position` | integer | Order within the unit, from 1 |
+| `title` | string | e.g. "Say hello" |
+| `kind` | string | `lesson` (star), `chest` (treasure chest) or `review` (the trophy that ends a unit) |
+| `state` | string | `completed`, `active` (play this next) or `locked` |
+| `lessons_total` | integer | Lessons in the node; `0` for a chest |
+| `lessons_completed` | integer | Lessons finished so far; drives the progress ring around the active node |
+
+Nodes unlock strictly in order: everything before the first unfinished node is `completed`, that node is
+`active`, and everything after it is `locked`, across unit boundaries too. Only completion is stored; the states
+are worked out on every request, so they can never contradict each other.
 
 ---
 
@@ -172,7 +215,7 @@ daily goal and the profile.
   "id": 1,
   "username": "alex",
   "display_name": "Alex",
-  "joined_at": "2026-10-08T12:00:00Z",
+  "joined_at": "2026-10-05T12:00:00Z",
   "timezone": "UTC",
   "active_course": {
     "id": 1,
@@ -182,24 +225,27 @@ daily goal and the profile.
     "is_available": true
   },
   "daily_goal_xp": 20,
-  "total_xp": 1240,
+  "total_xp": 40,
+  "xp_today": 0,
+  "lessons_completed": 4,
   "gems": 500,
   "hearts": {
-    "current": 4,
+    "current": 5,
     "max": 5,
-    "next_heart_at": "2026-10-08T12:20:00Z",
+    "next_heart_at": null,
     "regen_minutes": 30
   },
   "streak": {
-    "length": 6,
-    "extended_today": true,
-    "longest": 14
+    "length": 3,
+    "extended_today": false,
+    "longest": 3
   }
 }
 ```
 
-A freshly seeded learner has `total_xp: 0`, full hearts with `next_heart_at: null`, and a streak of
-`{"length": 0, "extended_today": false, "longest": 0}`.
+The streak reads `extended_today: false` because the seeded history ends yesterday: finishing a lesson today
+extends it. While hearts are not full, `hearts` looks like
+`{"current": 4, "max": 5, "next_heart_at": "2026-10-08T12:20:00Z", "regen_minutes": 30}`.
 
 **Errors**
 
@@ -244,7 +290,7 @@ and returns the learner unchanged.
   "id": 1,
   "username": "alex",
   "display_name": "Alex",
-  "joined_at": "2026-10-08T12:00:00Z",
+  "joined_at": "2026-10-05T12:00:00Z",
   "timezone": "Asia/Kolkata",
   "active_course": {
     "id": 1,
@@ -254,18 +300,20 @@ and returns the learner unchanged.
     "is_available": true
   },
   "daily_goal_xp": 30,
-  "total_xp": 1240,
+  "total_xp": 40,
+  "xp_today": 0,
+  "lessons_completed": 4,
   "gems": 500,
   "hearts": {
-    "current": 4,
+    "current": 5,
     "max": 5,
-    "next_heart_at": "2026-10-08T12:20:00Z",
+    "next_heart_at": null,
     "regen_minutes": 30
   },
   "streak": {
-    "length": 6,
-    "extended_today": true,
-    "longest": 14
+    "length": 3,
+    "extended_today": false,
+    "longest": 3
   }
 }
 ```
@@ -381,4 +429,94 @@ them as "coming soon". Used by the course picker of the "Get started" flow.
 
 ```bash
 curl http://localhost:8000/api/v1/courses
+```
+
+---
+
+## GET /api/v1/courses/{course_id}/path
+
+The course's learning path, with the learner's progress: every unit, its nodes, and each node's state. The
+`/learn` page draws the path from this.
+
+**Request:** `course_id` in the URL, the `id` of an available course (the learner's is `me.active_course.id`).
+
+**Response `200 OK`:** a [Path](#path). Unit 1 of the seeded learner (Units 2 and 3 have the same shape, all
+`locked`):
+
+```json
+{
+  "course": {
+    "id": 1,
+    "learning_language": "es",
+    "from_language": "en",
+    "title": "Spanish",
+    "is_available": true
+  },
+  "units": [
+    {
+      "id": 1,
+      "position": 1,
+      "title": "Greet people and introduce yourself",
+      "nodes": [
+        { "id": 1, "position": 1, "title": "Say hello", "kind": "lesson", "state": "completed", "lessons_total": 3, "lessons_completed": 3 },
+        { "id": 2, "position": 2, "title": "Introduce yourself", "kind": "lesson", "state": "active", "lessons_total": 3, "lessons_completed": 1 },
+        { "id": 3, "position": 3, "title": "Treasure chest", "kind": "chest", "state": "locked", "lessons_total": 0, "lessons_completed": 0 },
+        { "id": 4, "position": 4, "title": "Meet people", "kind": "lesson", "state": "locked", "lessons_total": 3, "lessons_completed": 0 },
+        { "id": 5, "position": 5, "title": "Unit review", "kind": "review", "state": "locked", "lessons_total": 2, "lessons_completed": 0 }
+      ]
+    }
+  ],
+  "active_node_id": 2
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 404 | `course_not_found` | No course has that id |
+| 409 | `course_unavailable` | The course is coming soon: `{"error": {"code": "course_unavailable", "message": "French is coming soon."}}` |
+| 422 | `validation_error` | The id isn't a whole number (`details[0].loc` is `["path", "course_id"]`, `type` is `int_parsing`) |
+| 503 | `learner_missing` | The database has not been seeded |
+
+```bash
+curl http://localhost:8000/api/v1/courses/1/path
+```
+
+---
+
+## POST /api/v1/skills/{skill_id}/open-chest
+
+Opens the treasure chest the learner has reached (the chest node whose `state` is `active`) and adds its
+20 gems to their balance. The chest then counts as completed, so the next node unlocks.
+
+**Request:** `skill_id` in the URL, the chest node's `id`. No body.
+
+**Response `200 OK`**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `gems_awarded` | integer | Gems in the chest (20) |
+| `gems` | integer | The learner's gem balance after opening |
+
+```json
+{
+  "gems_awarded": 20,
+  "gems": 520
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause | `message` |
+| --- | --- | --- | --- |
+| 404 | `skill_not_found` | No path node has that id | "That path node does not exist." |
+| 409 | `not_a_chest` | The node is a lesson or review node | "That path node is not a chest." |
+| 409 | `skill_locked` | The chest hasn't been reached yet | "Complete the levels above to reach this chest." |
+| 409 | `chest_already_opened` | It was opened before | "That chest has already been opened." |
+| 422 | `validation_error` | The id isn't a whole number | "The request is invalid." |
+| 503 | `learner_missing` | The database has not been seeded | "The default learner has not been seeded yet." |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/skills/3/open-chest
 ```

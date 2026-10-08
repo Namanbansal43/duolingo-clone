@@ -4,8 +4,8 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 
 | Part | Stack | Status |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow |
-| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full database schema; `/me` and `/courses` API |
+| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn` |
+| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course; learner, course and path API |
 
 ## Running the backend
 
@@ -63,7 +63,7 @@ defaults to `http://localhost:8000`; set `API_URL` (see `frontend/.env.example`)
 | --- | --- |
 | `/` | Landing page, matching duolingo.com section by section |
 | `/welcome` | The "Get started" flow (below) |
-| `/learn` | Temporary: shows what the flow saved. The learning path replaces it. |
+| `/learn` | The learning path, inside the app shell (below) |
 
 ### "Get started" flow
 
@@ -83,6 +83,44 @@ an account" goes straight to `/learn`, since the learner is always logged in.
 Duolingo's flow also asks how you heard about it, why you are learning, how much you already know, and for
 notification permission. Those screens are left out: nothing in this app would use the answers.
 
+### `/learn`: the app shell and the learning path
+
+Measured against duolingo.com's own `/learn` page (opened as a guest) at 1280, 1024, 800 and 390 px wide.
+
+- **App shell**, shared by every signed-in page (`frontend/src/app/(app)/layout.tsx`): a left sidebar with
+  Learn, Leaderboards, Quests, Shop, Profile and More. It is 256 px wide with labels from 1160 px, icons only
+  below that, and becomes a bottom tab bar on phones. Pages that aren't built yet show a "coming soon" message.
+- **Right rail** (1024 px and up; a stats bar across the top below that): course flag, streak, gems and hearts
+  from `GET /api/v1/me`; an "Unlock Leaderboards!" card counting down the 10 lessons that open leaderboards; and
+  the daily quest, which tracks today's XP against the daily goal.
+- **The path** (`GET /api/v1/courses/{id}/path`): units in order, each with a sticky green header that follows
+  the unit being scrolled through, and nodes that snake left and right at Duolingo's offsets (0, 45 and 70 px).
+  Completed nodes show a check, the next one has a progress ring and a bouncing START bubble, and the rest are
+  grey. A trophy ends each unit, and Duo stands beside the path (greyed-out characters beside locked units).
+- **Node popovers**: the next node offers "Start +10 XP"; locked nodes explain what unlocks them. Lessons arrive
+  with the lesson player, so START shows a "coming soon" message for now.
+- **Treasure chests** open with one tap once reached (`POST /api/v1/skills/{id}/open-chest`): 20 gems, and the
+  next node unlocks.
+
+### Game rules so far
+
+| Rule | Value | Where |
+| --- | --- | --- |
+| Path order | Nodes unlock strictly one after another, across units; only completion is stored | `backend/app/services/path.py` |
+| Lesson XP | 10 XP per lesson | `backend/app/services/rules.py` |
+| Chest | 20 gems, once | `backend/app/services/rules.py` |
+| Hearts | 5 at most; one comes back every 30 minutes (`HEART_REGEN_MINUTES`) | `backend/app/services/hearts.py` |
+| Streak | Counts days with a finished lesson, in the learner's time zone; reads 0 after a missed day | `backend/app/services/streak.py` |
+| Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes) | `backend/app/models/learner.py` |
+| Leaderboards | Open after 10 finished lessons | `frontend/src/components/app/right-rail.tsx` |
+
+### Demo data
+
+The seeded learner starts partway through Unit 1, so every node state is visible straight away: "Say hello"
+finished, "Introduce yourself" at lesson 2 of 3, and the rest locked. Behind that are 4 real lessons on the 3
+days before the database was first seeded: sessions, XP events, 40 XP and a 3-day streak that today's first lesson
+would extend. `python -m app.seed --reset` restores this starting point.
+
 ## Database
 
 16 tables covering course content, learner progress, lesson history, XP and achievements. The ER diagram,
@@ -101,9 +139,11 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Liveness check, including the database |
-| GET | `/api/v1/me` | The learner with live stats: hearts after regeneration, streak as of today |
+| GET | `/api/v1/me` | The learner with live stats: hearts after regeneration, streak and XP as of today |
 | PATCH | `/api/v1/me` | Set the active course, daily goal (10/20/30/50 XP) or time zone |
 | GET | `/api/v1/courses` | All courses in display order with learner counts; only Spanish is available |
+| GET | `/api/v1/courses/{course_id}/path` | The course's units and nodes, each completed, active or locked |
+| POST | `/api/v1/skills/{skill_id}/open-chest` | Open the treasure chest the learner has reached (+20 gems) |
 
 Every request and response, with real examples and every error code, is documented in
 [docs/API.md](docs/API.md). With the backend running, `/docs` serves the same reference interactively.
@@ -111,8 +151,9 @@ Errors always have the shape `{"error": {"code": "...", "message": "...", "detai
 
 ## Brand assets
 
-The logo, flags, illustrations and animations in `frontend/public/landing/` and `frontend/public/onboarding/` are
-Duolingo's own artwork. They are used here only to reproduce the look of duolingo.com for a non-commercial
+The logo, flags, icons, illustrations and animations in `frontend/public/landing/`, `frontend/public/onboarding/`
+and `frontend/public/app/` are Duolingo's own artwork (the lit streak flame, the white trophy and the check
+mark are recoloured or drawn here). They are used here only to reproduce the look of duolingo.com for a non-commercial
 assignment, and remain the property of Duolingo, Inc. This project is not affiliated with Duolingo. To rebrand,
 replace those folders; no code changes are needed.
 
