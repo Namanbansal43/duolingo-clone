@@ -37,9 +37,42 @@ export type Me = {
   active_course: Course | null;
   daily_goal_xp: DailyGoalXp;
   total_xp: number;
+  /** XP earned today in the learner's time zone; compare with daily_goal_xp. */
+  xp_today: number;
+  lessons_completed: number;
   gems: number;
   hearts: Hearts;
   streak: Streak;
+};
+
+export type NodeState = "completed" | "active" | "locked";
+
+export type PathNode = {
+  id: number;
+  position: number;
+  title: string;
+  kind: "lesson" | "chest" | "review";
+  state: NodeState;
+  lessons_total: number;
+  lessons_completed: number;
+};
+
+export type PathUnit = {
+  id: number;
+  position: number;
+  title: string;
+  nodes: PathNode[];
+};
+
+export type CoursePath = {
+  course: Course;
+  units: PathUnit[];
+  active_node_id: number | null;
+};
+
+export type ChestReward = {
+  gems_awarded: number;
+  gems: number;
 };
 
 /** PATCH /api/v1/me: omitted fields are left unchanged. */

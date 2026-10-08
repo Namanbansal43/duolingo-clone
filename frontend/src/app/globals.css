@@ -10,6 +10,11 @@
   --font-sans: var(--font-signika), "Segoe UI", system-ui, sans-serif;
   --font-display: var(--font-fredoka), var(--font-signika), sans-serif;
 
+  /* The app's left sidebar shows labels from this width; below it, icons only (as on duolingo.com). */
+  --breakpoint-wide: 72.5rem; /* 1160px; rem like the default breakpoints, so they sort correctly */
+
+  --animate-hover-bounce: hover-bounce 1.2s ease-in-out infinite;
+
   --color-duo-green: #58cc02;
   --color-duo-green-hover: #61e002;
   --color-duo-green-shade: #58a700;
@@ -54,6 +59,17 @@
 
   ::selection {
     background-color: var(--color-duo-blue-tint);
+  }
+}
+
+/* The START bubble over the current path node bobs gently. */
+@keyframes hover-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
   }
 }
 

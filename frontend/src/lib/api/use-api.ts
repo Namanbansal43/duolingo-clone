@@ -7,8 +7,11 @@ export type ApiState<T> =
   | { status: "success"; data: T }
   | { status: "error"; error: ApiError };
 
-/** Loads data from the API when the component mounts; `retry` loads it again. `load` must be stable. */
-export function useApi<T>(load: () => Promise<T>): ApiState<T> & { retry: () => void } {
+/**
+ * Loads data from the API when the component mounts. `load` must be stable.
+ * `retry` shows the loading state again; `refresh` reloads quietly, keeping the current data on screen.
+ */
+export function useApi<T>(load: () => Promise<T>): ApiState<T> & { retry: () => void; refresh: () => Promise<void> } {
   const [state, setState] = useState<ApiState<T>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -34,5 +37,10 @@ export function useApi<T>(load: () => Promise<T>): ApiState<T> & { retry: () => 
     setAttempt((count) => count + 1);
   }, []);
 
-  return { ...state, retry };
+  const refresh = useCallback(async () => {
+    const data = await load();
+    setState({ status: "success", data });
+  }, [load]);
+
+  return { ...state, retry, refresh };
 }
