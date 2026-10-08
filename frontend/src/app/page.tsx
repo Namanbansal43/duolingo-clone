@@ -1,7 +1,10 @@
 import { CourseStrip } from "@/components/landing/course-strip";
+import { EnglishTestSection } from "@/components/landing/english-test-section";
+import { FeatureSections } from "@/components/landing/feature-sections";
 import { Hero } from "@/components/landing/hero";
 import { SiteHeader } from "@/components/landing/site-header";
 import { StickyHeader } from "@/components/landing/sticky-header";
+import { SuperSection } from "@/components/landing/super-section";
 
 const HERO_CTA_ID = "hero-cta";
 
@@ -14,6 +17,9 @@ export default function LandingPage() {
       <main>
         <Hero ctaId={HERO_CTA_ID} />
         <CourseStrip />
+        <FeatureSections />
+        <SuperSection />
+        <EnglishTestSection />
       </main>
     </div>
   );
