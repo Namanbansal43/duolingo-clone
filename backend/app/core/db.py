@@ -1,8 +1,10 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Engine, create_engine, event, make_url
+from sqlalchemy import Connection, Engine, create_engine, event, make_url
 
 from app.core.config import BACKEND_DIR
 
@@ -26,16 +28,25 @@ def _enable_foreign_keys(dbapi_connection, _connection_record) -> None:
 
 def run_migrations(engine: Engine, revision: str = "head") -> None:
     """Apply Alembic migrations on the given engine (used at startup, by the seed CLI and in tests)."""
-    config = Config(str(BACKEND_DIR / "alembic.ini"))
-    with engine.begin() as connection:
+    with _migration_connection(engine) as (config, connection):
         config.attributes["connection"] = connection
         command.upgrade(config, revision)
 
 
 def reset_database(engine: Engine) -> None:
     """Roll every migration back, then forward again: an empty schema with nothing seeded."""
-    config = Config(str(BACKEND_DIR / "alembic.ini"))
-    with engine.begin() as connection:
+    with _migration_connection(engine) as (config, connection):
         config.attributes["connection"] = connection
         command.downgrade(config, "base")
         command.upgrade(config, "head")
+
+
+@contextmanager
+def _migration_connection(engine: Engine) -> Iterator[tuple[Config, Connection]]:
+    try:
+        with engine.begin() as connection:
+            yield Config(str(BACKEND_DIR / "alembic.ini")), connection
+    finally:
+        # Migrations switch foreign keys off on their connection (see alembic/env.py). Close every
+        # pooled connection so the app only ever gets fresh ones, which turn them back on.
+        engine.dispose()

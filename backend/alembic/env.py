@@ -1,20 +1,41 @@
 from logging.config import fileConfig
 
 from alembic import context
+from alembic.autogenerate.api import AutogenContext
 from sqlalchemy import Connection
 
 from app.core.config import Settings
 from app.core.db import create_db_engine
 from app.models import Base
+from app.models.base import UTCDateTime
 
 config = context.config
 
 
+def render_item(type_: str, obj: object, _autogen_context: AutogenContext) -> str | bool:
+    """Autogenerate writes UTCDateTime columns as plain DateTime, so migrations don't import app code."""
+    if type_ == "type" and isinstance(obj, UTCDateTime):
+        return "sa.DateTime()"
+    return False
+
+
 def run_migrations(connection: Connection) -> None:
-    # render_as_batch: SQLite can't ALTER most things, so Alembic rebuilds tables instead.
-    context.configure(connection=connection, target_metadata=Base.metadata, render_as_batch=True)
+    # SQLite can't ALTER most things, so batch mode rebuilds a table: copy it, drop the original,
+    # rename the copy. With foreign keys on, SQLite treats that DROP as deleting every row and
+    # cascades the deletes into child tables. So they are off while migrating (this PRAGMA only
+    # works before the transaction starts) and every reference is verified at the end instead.
+    connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+    context.configure(
+        connection=connection,
+        target_metadata=Base.metadata,
+        render_as_batch=True,
+        render_item=render_item,
+    )
     with context.begin_transaction():
         context.run_migrations()
+    broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+    if broken:
+        raise RuntimeError(f"Migration left rows pointing at missing parents: {broken}")
 
 
 if context.is_offline_mode():
