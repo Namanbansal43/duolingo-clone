@@ -49,3 +49,17 @@ DEFAULT_LEARNER_NAME = "Alex"
 DEFAULT_LEARNER_COURSE = "es"
 DEFAULT_LEARNER_DAILY_GOAL_XP = 20
 DEFAULT_LEARNER_GEMS = 500
+
+# key, title, description ({threshold} is filled in per tier), metric, thresholds for tiers 1, 2, 3...
+ACHIEVEMENTS: list[tuple[str, str, str, str, tuple[int, ...]]] = [
+    ("wildfire", "Wildfire", "Reach a {threshold} day streak", "streak", (3, 7, 14, 30)),
+    ("sage", "Sage", "Earn {threshold} XP", "total_xp", (100, 250, 500, 1000)),
+    ("scholar", "Scholar", "Complete {threshold} lessons", "lessons_completed", (5, 10, 25, 50)),
+    (
+        "sharpshooter",
+        "Sharpshooter",
+        "Complete {threshold} lessons without a mistake",
+        "perfect_lessons",
+        (3, 10, 25, 50),
+    ),
+]
