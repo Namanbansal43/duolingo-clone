@@ -1,0 +1,52 @@
+from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Course, User
+from app.seed import data
+
+
+def seed_database(db: Session, *, default_username: str, now: datetime) -> None:
+    """Insert whatever seed data is missing. Safe to run on every start: existing rows,
+    including the learner's progress, are never overwritten."""
+    _seed_courses(db)
+    _seed_default_learner(db, default_username, now)
+    db.commit()
+
+
+def _seed_courses(db: Session) -> None:
+    existing = set(db.scalars(select(Course.learning_language).where(Course.from_language == "en")))
+    for position, (code, title) in enumerate(data.COURSES):
+        if code not in existing:
+            db.add(
+                Course(
+                    learning_language=code,
+                    from_language="en",
+                    title=title,
+                    position=position,
+                    is_available=code in data.AVAILABLE_COURSES,
+                )
+            )
+    db.flush()
+
+
+def _seed_default_learner(db: Session, username: str, now: datetime) -> None:
+    if db.scalar(select(User.id).where(User.username == username)) is not None:
+        return
+    course = db.scalar(
+        select(Course).where(
+            Course.learning_language == data.DEFAULT_LEARNER_COURSE, Course.from_language == "en"
+        )
+    )
+    db.add(
+        User(
+            username=username,
+            display_name=data.DEFAULT_LEARNER_NAME,
+            created_at=now,
+            active_course=course,
+            daily_goal_xp=data.DEFAULT_LEARNER_DAILY_GOAL_XP,
+            gems=data.DEFAULT_LEARNER_GEMS,
+            hearts_updated_at=now,
+        )
+    )
