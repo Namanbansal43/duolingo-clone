@@ -29,6 +29,8 @@ const sizes = {
   sm: "h-10 rounded-xl px-4 text-[13px]",
   md: "h-11 rounded-xl px-5 text-[14px]",
   lg: "h-[50px] rounded-xl px-4 text-[14px]",
+  // Footer buttons of full-screen flows (onboarding, lessons): CONTINUE, CHECK.
+  xl: "h-[46px] rounded-2xl px-11 text-[15px] tracking-[0.8px]",
 } as const;
 
 export type ButtonVariant = keyof typeof variants;
@@ -53,7 +55,8 @@ export function buttonClasses({
     "font-bold uppercase tracking-[0.7px] transition-[background-color,filter,transform] duration-100",
     "outline-none focus-visible:ring-4 focus-visible:ring-duo-blue-border",
     "active:translate-y-[4px] active:shadow-none",
-    "disabled:pointer-events-none disabled:bg-line disabled:text-ink-faint disabled:shadow-none",
+    // Disabled buttons lose their ledge and sit at its level, as if pressed.
+    "disabled:pointer-events-none disabled:translate-y-[4px] disabled:bg-line disabled:text-ink-faint disabled:shadow-none",
     variants[variant],
     sizes[size],
     fullWidth && "w-full",

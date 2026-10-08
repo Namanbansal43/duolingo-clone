@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 import { Button } from "@/components/ui/button";
 import { comingSoon } from "@/lib/coming-soon";
-
-import { AnimatedIllustration } from "./animated-illustration";
 
 /** Dark "Power up with Super Duolingo" promo. Subscriptions are a placeholder in this clone. */
 export function SuperSection() {

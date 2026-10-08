@@ -1,9 +1,8 @@
 import Link from "next/link";
 
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 import { buttonClasses } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
-
-import { AnimatedIllustration } from "./animated-illustration";
 
 /**
  * Closing call-to-action. The illustration is a background whose green wave

@@ -1,8 +1,8 @@
 import { AppStoreIcon, GooglePlayIcon } from "@/components/icons/store-icons";
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 import { buttonClasses } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
-import { AnimatedIllustration } from "./animated-illustration";
 import { ComingSoonLink } from "./coming-soon-link";
 
 const STORES = [

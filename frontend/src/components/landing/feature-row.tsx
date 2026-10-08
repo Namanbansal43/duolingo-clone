@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import { AnimatedIllustration, type AnimationLayer } from "./animated-illustration";
+import { AnimatedIllustration, type AnimationLayer } from "@/components/ui/animated-illustration";
 
 export type FeatureRowProps = {
   title: string;

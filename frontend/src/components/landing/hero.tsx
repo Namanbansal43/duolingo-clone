@@ -1,10 +1,9 @@
 import Link from "next/link";
 
+import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 import { buttonClasses } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/cn";
-
-import { AnimatedIllustration } from "./animated-illustration";
 
 /*
  * One grid, two arrangements (named grid areas):
