@@ -16,7 +16,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 flex h-[82px] items-center justify-around border-t-2 border-line bg-white px-2 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex h-[82px] items-center justify-around border-t-2 border-line bg-page px-2 md:hidden"
     >
       {NAV_ITEMS.filter((item) => item.inTabBar).map((item) => {
         const active = item.href !== null && pathname.startsWith(item.href);

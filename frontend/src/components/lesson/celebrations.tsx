@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SpeechBubble } from "@/components/ui/speech-bubble";
 import type { Achievement, Completion } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
+import { appNow } from "@/lib/clock";
 import { comingSoon } from "@/lib/coming-soon";
 
 const WAVE = [{ src: "/onboarding/duo-wave.json", loopFrom: null }];
@@ -95,9 +96,9 @@ export function LessonComplete({ result, onContinue }: { result: Completion; onC
 function StatCard({ label, color, children }: { label: string; color: string; children: ReactNode }) {
   return (
     <div className="w-[140px] animate-pop-in rounded-2xl border-2 sm:w-[150px]" style={{ borderColor: color, backgroundColor: color }}>
-      <p className="py-1 text-[13px] font-bold tracking-[0.6px] text-white uppercase">{label}</p>
+      <p className="py-1 text-[13px] font-bold tracking-[0.6px] text-on-accent uppercase">{label}</p>
       <p
-        className="flex items-center justify-center gap-2 rounded-[14px] bg-white py-4 text-[20px] font-bold"
+        className="flex items-center justify-center gap-2 rounded-[14px] bg-page py-4 text-[20px] font-bold"
         style={{ color }}
       >
         {children}
@@ -119,7 +120,7 @@ export function StreakExtended({ length, onContinue }: { length: number; onConti
   // Up to two streak days before today, then the days to come.
   const before = Math.min(length - 1, 2);
   const days = Array.from({ length: 5 }, (_, i) => {
-    const date = new Date();
+    const date = new Date(appNow());
     date.setDate(date.getDate() + i - before);
     return { label: WEEKDAYS[date.getDay()], done: i <= before, today: i === before };
   });

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { RailCard } from "@/components/app/right-rail";
 import type { Leaderboard } from "@/lib/api/types";
+import { cn } from "@/lib/cn";
 
 import { leagueBadge, leagueTitle } from "./league-art";
 
@@ -62,7 +63,7 @@ function CardBody({ image, wide = false, children }: { image: string; wide?: boo
         width={wide ? 70 : 44}
         height={50}
         alt=""
-        className={wide ? "h-[50px] w-[70px] shrink-0 object-contain" : "h-[50px] w-11 shrink-0 object-contain"}
+        className={cn("h-[50px] shrink-0 object-contain", wide ? "w-[70px] dark:opacity-40" : "w-11")}
       />
       <div className="pl-2">{children}</div>
     </div>

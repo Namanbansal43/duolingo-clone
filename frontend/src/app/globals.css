@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
+/* dark: utilities follow the dark mode setting (data-theme on <html>), not only the device's. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /*
  * Design tokens.
  * Colours mirror Duolingo's palette. Every component reads these tokens,
- * so a dark theme later only needs to redefine them in one place.
+ * so the dark theme (below) only redefines them.
  */
 @theme {
   /* Free stand-ins for Duolingo's own typefaces: Signika for "duolingo-sans", Fredoka for "feather". */
@@ -16,6 +19,10 @@
   --animate-hover-bounce: hover-bounce 1.2s ease-in-out infinite;
   --animate-slide-up: slide-up 0.2s ease-out;
   --animate-pop-in: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* The page itself, and text on coloured buttons. */
+  --color-page: #ffffff;
+  --color-on-accent: #ffffff;
 
   --color-duo-green: #58cc02;
   --color-duo-green-hover: #61e002;
@@ -32,6 +39,7 @@
   --color-duo-red: #ff4b4b;
   --color-duo-red-shade: #ea2b2b;
   --color-duo-red-tint: #ffdfe0;
+  --color-duo-red-border: #ffb2b2;
 
   --color-duo-gold: #ffc800;
   --color-duo-gold-shade: #e5a400;
@@ -41,6 +49,10 @@
   --color-duo-purple-shade: #a568cc;
 
   --color-duo-green-soft: #a5ed6e;
+  /* The learning path keeps Duolingo's bright green in both themes. */
+  --color-path-green: #58cc02;
+  --color-path-green-ledge: #46a302;
+  --color-path-locked-ledge: #b7b7b7;
   --color-duo-navy: #042c60;
   --color-super-night: #100f3e;
   --color-super-ink: #000437;
@@ -54,9 +66,58 @@
   --color-snow: #f7f7f7;
 }
 
+/*
+ * Dark mode, from the settings page. Values are duolingo.com's own dark palette: the page turns
+ * #131f24, cards #202f36, borders #37464f, and text near-white; the brand colours lighten a little
+ * and coloured buttons get dark text.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-page: #131f24;
+  --color-on-accent: #131f24;
+
+  --color-duo-green: #93d333;
+  --color-duo-green-hover: #a3dd4c;
+  --color-duo-green-shade: #79b933;
+  --color-duo-green-tint: #202f36;
+  --color-duo-green-soft: #5f8428;
+
+  --color-duo-blue: #49c0f8;
+  --color-duo-blue-hover: #6bccf9;
+  --color-duo-blue-shade: #1899d6;
+  --color-duo-blue-tint: #202f36;
+  --color-duo-blue-border: #3f85a7;
+
+  --color-duo-red: #ee5555;
+  --color-duo-red-shade: #d84848;
+  --color-duo-red-tint: #202f36;
+  --color-duo-red-border: #f5a4a4;
+
+  --color-duo-orange: #ffab33;
+
+  --color-path-locked-ledge: #2a383f;
+
+  --color-ink-strong: #f1f7fb;
+  --color-ink: #f1f7fb;
+  --color-ink-soft: #dce6ec;
+  --color-ink-faint: #52656d;
+  --color-line: #37464f;
+  --color-snow: #202f36;
+}
+
+/* "Animations" switched off on the settings page: motion stops, as for reduced-motion users. */
+:root[data-animations="off"] *,
+:root[data-animations="off"] *::before,
+:root[data-animations="off"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
 @layer base {
   body {
-    @apply bg-white font-sans text-ink antialiased;
+    @apply bg-page font-sans text-ink antialiased;
   }
 
   ::selection {

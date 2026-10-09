@@ -45,6 +45,27 @@ export type Me = {
   gems: number;
   hearts: Hearts;
   streak: Streak;
+  /** The app's current time: real time, or later once the demo tools have advanced the clock. */
+  now: string;
+};
+
+/** "system" follows the device's light or dark setting. */
+export type DarkModeChoice = "system" | "on" | "off";
+
+/** The learner's choices on the settings page's Preferences section. */
+export type UserSettings = {
+  sound_effects: boolean;
+  animations: boolean;
+  /** Encouragement in lessons, such as "5 in a row". */
+  motivational_messages: boolean;
+  listening_exercises: boolean;
+  dark_mode: DarkModeChoice;
+};
+
+export type DemoClock = {
+  /** Days the app's clock runs ahead of real time. */
+  days_ahead: number;
+  now: string;
 };
 
 /** An achievement with the learner's level and progress towards the next one. */

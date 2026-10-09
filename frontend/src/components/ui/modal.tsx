@@ -12,7 +12,7 @@ type ModalProps = {
   className?: string;
 };
 
-/** A white card over a dimmed page. */
+/** A card over a dimmed page. */
 export function Modal({ label, onClose, children, className }: ModalProps) {
   useEffect(() => {
     if (!onClose) return;
@@ -30,7 +30,7 @@ export function Modal({ label, onClose, children, className }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className={cn("w-full max-w-[384px] animate-pop-in rounded-2xl bg-white p-6 text-center", className)}
+        className={cn("w-full max-w-[384px] animate-pop-in rounded-2xl bg-page p-6 dark:border-2 dark:border-line text-center", className)}
       >
         {children}
       </div>

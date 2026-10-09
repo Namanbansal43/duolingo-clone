@@ -12,18 +12,18 @@ import { canSpeak, speak } from "@/lib/speech";
 export type Tone = "idle" | "selected" | "right" | "wrong" | "done";
 
 const TONES: Record<Tone, string> = {
-  idle: "border-line bg-white text-ink hover:bg-snow",
+  idle: "border-line bg-page text-ink hover:bg-snow",
   selected: "border-duo-blue-border bg-duo-blue-tint text-duo-blue-shade",
   right: "border-duo-green-soft bg-duo-green-tint text-duo-green-shade",
-  wrong: "border-[#ffb2b2] bg-duo-red-tint text-duo-red-shade",
-  done: "pointer-events-none border-line bg-white text-line",
+  wrong: "border-duo-red-border bg-duo-red-tint text-duo-red-shade",
+  done: "pointer-events-none border-line bg-page text-line",
 };
 
 const KEY_TONES: Record<Tone, string> = {
   idle: "border-line text-ink-faint",
   selected: "border-duo-blue-border text-duo-blue-shade",
   right: "border-duo-green-soft text-duo-green-shade",
-  wrong: "border-[#ffb2b2] text-duo-red-shade",
+  wrong: "border-duo-red-border text-duo-red-shade",
   done: "border-line text-line",
 };
 

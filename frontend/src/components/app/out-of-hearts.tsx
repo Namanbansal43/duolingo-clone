@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { getMe, refillHearts } from "@/lib/api/endpoints";
 import type { Hearts, Me } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
+import { appNow } from "@/lib/clock";
 
 const REFILL_GEMS = 350; // HEART_REFILL_GEMS on the server
 
@@ -85,5 +86,5 @@ export function OutOfHearts({ hearts, onRefilled, onPractice, onNoThanks }: OutO
 }
 
 function minutesUntil(iso: string): number {
-  return Math.max(1, Math.ceil((new Date(iso).getTime() - Date.now()) / 60_000));
+  return Math.max(1, Math.ceil((new Date(iso).getTime() - appNow()) / 60_000));
 }

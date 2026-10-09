@@ -13,6 +13,7 @@ import { getLeaderboard, getMe } from "@/lib/api/endpoints";
 import type { League, Leaderboard, Me, Standing } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
 import { cn } from "@/lib/cn";
+import { appNow } from "@/lib/clock";
 
 import { leagueTitle } from "./league-art";
 import { LeagueStrip } from "./league-strip";
@@ -174,7 +175,7 @@ function NotJoined({ me, showOwnRow }: { me: Me; showOwnRow: boolean }) {
         <Image src="/app/leagues/placeholder-ranks.svg" width={16} height={464} alt="" className="absolute top-0 left-7" />
         <Image src="/app/leagues/placeholder-learners.svg" width={208} height={480} alt="" className="absolute top-0 left-[68px]" />
         <Image src="/app/leagues/placeholder-xp.svg" width={48} height={462} alt="" className="absolute top-0 right-6" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-linear-to-b from-white/0 to-white" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-linear-to-b from-page/0 to-page" />
       </div>
       {showOwnRow && (
         <div className="sticky bottom-[94px] flex h-[72px] items-center rounded-2xl bg-snow pr-[34px] pl-[30px] text-ink-faint md:bottom-6">
@@ -191,7 +192,7 @@ function NotJoined({ me, showOwnRow }: { me: Me; showOwnRow: boolean }) {
 
 /** "6 days" until the league week ends, or hours on its last day. */
 function timeLeft(endsAt: string): string {
-  const hours = Math.max(0, (new Date(endsAt).getTime() - Date.now()) / 3_600_000);
+  const hours = Math.max(0, (new Date(endsAt).getTime() - appNow()) / 3_600_000);
   if (hours >= 24) {
     const days = Math.floor(hours / 24);
     return `${days} ${days === 1 ? "day" : "days"}`;

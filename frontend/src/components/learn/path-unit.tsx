@@ -80,7 +80,7 @@ function PathCharacter({ index, unlocked }: { index: number; unlocked: boolean }
           width={278}
           height={261}
           alt=""
-          className="mx-auto h-full w-auto"
+          className="mx-auto h-full w-auto dark:opacity-40"
         />
       )}
     </div>

@@ -10,8 +10,9 @@ const PLOT_WIDTH = 456;
 const PLOT_HEIGHT = 205;
 const HEIGHT = PLOT_TOP + PLOT_HEIGHT + 30;
 const GRID_LINES = 4;
-const LABEL = "#cccac9";
-const BLUE = "#1cb0f6";
+// Theme colours, so the chart follows dark mode.
+const LABEL = "var(--color-ink-faint)";
+const BLUE = "var(--color-duo-blue)";
 
 /** "XP this week": the learner's XP on each of the last 7 days, as a line over a grid. */
 export function XpChart({ name, days }: { name: string; days: DailyXp[] }) {
@@ -35,7 +36,7 @@ export function XpChart({ name, days }: { name: string; days: DailyXp[] }) {
         <g transform={`translate(${PLOT_LEFT}, ${PLOT_TOP})`} fontSize={16} fill={LABEL}>
           {Array.from({ length: GRID_LINES + 1 }, (_, i) => (
             <g key={i} transform={`translate(0, ${y(i * step)})`}>
-              <line x2={PLOT_WIDTH} stroke="#dedede" strokeOpacity={0.5} strokeWidth={2} />
+              <line x2={PLOT_WIDTH} stroke="var(--color-line)" strokeWidth={2} />
               <text x={-16} dy="0.32em" textAnchor="end">
                 {i * step}
               </text>

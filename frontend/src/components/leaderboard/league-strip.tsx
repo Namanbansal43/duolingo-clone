@@ -33,7 +33,12 @@ export function LeagueStrip({ leagues, current }: { leagues: League[]; current: 
               width={isCurrent ? 80 : SMALL}
               height={isCurrent ? 91 : 58}
               alt=""
-              className={cn("shrink-0", isCurrent ? "h-[91px] w-20" : "h-[58px] w-[52px]")}
+              className={cn(
+                "shrink-0",
+                isCurrent ? "h-[91px] w-20" : "h-[58px] w-[52px]",
+                // The light grey locked art, dimmed to the dark theme's slate.
+                !reached && "dark:opacity-40",
+              )}
             />
           );
         })}

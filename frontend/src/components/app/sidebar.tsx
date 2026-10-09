@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { comingSoon } from "@/lib/coming-soon";
 
+import { MoreMenu } from "./more-menu";
 import { NAV_ITEMS, type NavItem } from "./nav-items";
 
 /**
@@ -19,7 +20,7 @@ export function Sidebar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col border-r-2 border-line bg-white px-4 md:flex wide:w-[256px]"
+      className="fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col border-r-2 border-line bg-page px-4 md:flex wide:w-[256px]"
     >
       <Link
         href="/learn"
@@ -32,7 +33,11 @@ export function Sidebar() {
       <ul className="flex flex-col gap-2">
         {NAV_ITEMS.map((item) => (
           <li key={item.label}>
-            <SidebarItem item={item} active={item.href !== null && pathname.startsWith(item.href)} />
+            {item.menu ? (
+              <MoreMenu trigger={({ open, toggle }) => <SidebarItem item={item} active={false} open={open} onClick={toggle} />} />
+            ) : (
+              <SidebarItem item={item} active={item.href !== null && pathname.startsWith(item.href)} />
+            )}
           </li>
         ))}
       </ul>
@@ -40,11 +45,19 @@ export function Sidebar() {
   );
 }
 
-function SidebarItem({ item, active }: { item: NavItem; active: boolean }) {
+type SidebarItemProps = {
+  item: NavItem;
+  active: boolean;
+  /** The item's menu is showing (MORE). */
+  open?: boolean;
+  onClick?: () => void;
+};
+
+function SidebarItem({ item, active, open, onClick }: SidebarItemProps) {
   const classes = cn(
     "flex h-[52px] w-full items-center justify-center rounded-xl border-2 px-2 py-1 outline-none transition-colors wide:justify-start",
     "focus-visible:ring-4 focus-visible:ring-duo-blue-border",
-    active ? "border-duo-blue-border bg-duo-blue-tint" : "border-transparent hover:bg-snow",
+    active ? "border-duo-blue-border bg-duo-blue-tint" : cn("border-transparent hover:bg-snow", open && "bg-snow"),
   );
   const content = (
     <>
@@ -67,7 +80,14 @@ function SidebarItem({ item, active }: { item: NavItem; active: boolean }) {
       {content}
     </Link>
   ) : (
-    <button type="button" aria-label={item.label} className={classes} onClick={() => comingSoon(item.label)}>
+    <button
+      type="button"
+      aria-label={item.label}
+      aria-haspopup={item.menu ? "menu" : undefined}
+      aria-expanded={item.menu ? Boolean(open) : undefined}
+      className={classes}
+      onClick={onClick ?? (() => comingSoon(item.label))}
+    >
       {content}
     </button>
   );

@@ -3,6 +3,8 @@ import { Fredoka, Signika } from "next/font/google";
 
 import { Toaster } from "@/components/ui/toaster";
 import { siteConfig } from "@/config/site";
+import { PreferencesProvider } from "@/lib/preferences";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -33,9 +35,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${signika.variable} ${fredoka.variable}`}>
+    // The theme script sets data-theme on <html> before React hydrates, so React shouldn't flag it.
+    <html lang="en" className={`${signika.variable} ${fredoka.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-svh">
-        {children}
+        <PreferencesProvider>{children}</PreferencesProvider>
         <Toaster />
       </body>
     </html>

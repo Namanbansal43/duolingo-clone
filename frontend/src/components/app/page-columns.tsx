@@ -12,7 +12,7 @@ import { StatsBar } from "./stats-bar";
 export function PageColumns({ me, rail, children }: { me: Me; rail: ReactNode; children: ReactNode }) {
   return (
     <>
-      <div className="sticky top-0 z-20 bg-white lg:hidden">
+      <div className="sticky top-0 z-20 bg-page lg:hidden">
         <StatsBar me={me} className="mx-auto h-[58px] max-w-[592px] px-1" />
       </div>
       <div className="mx-auto flex max-w-[1056px] gap-12 md:px-6">

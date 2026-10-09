@@ -17,8 +17,9 @@ import {
   quitSession,
   startSession,
 } from "@/lib/api/endpoints";
-import type { AnswerBody, LessonSession } from "@/lib/api/types";
+import type { AnswerBody, LessonSession, UserSettings } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
+import { usePreferences } from "@/lib/preferences";
 import { playSound } from "@/lib/sounds";
 
 import { AchievementUnlocked, LeaderboardUnlocked, LessonComplete, ReviewIntro, StreakExtended } from "./celebrations";
@@ -34,14 +35,15 @@ import { QuitDialog } from "./quit-dialog";
  */
 export function LessonPlayer() {
   const router = useRouter();
-  const current = useApi(useCallback(() => getCurrentSession(), []));
+  const current = useApi(loadSession);
+  const { settings } = usePreferences();
   const missing = current.status === "error" && current.error.code === "session_not_found";
 
   useEffect(() => {
     if (missing) router.replace("/learn");
   }, [missing, router]);
 
-  if (current.status === "loading" || missing) return <LessonLoading />;
+  if (current.status === "loading" || missing || !settings) return <LessonLoading />;
   if (current.status === "error") {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-6 px-4 text-center">
@@ -52,12 +54,27 @@ export function LessonPlayer() {
       </div>
     );
   }
-  return <Lesson key={current.data.id} session={current.data} onReload={current.retry} />;
+  return <Lesson key={current.data.id} session={current.data} settings={settings} onReload={current.retry} />;
 }
 
-function Lesson({ session, onReload }: { session: LessonSession; onReload: () => void }) {
+// The learner is loaded alongside only to set the app's clock (see lib/clock), which the out-of-hearts
+// countdown and the streak screen go by, even when the lesson page is opened directly.
+async function loadSession() {
+  const [session] = await Promise.all([getCurrentSession(), getMe()]);
+  return session;
+}
+
+type LessonProps = { session: LessonSession; settings: UserSettings; onReload: () => void };
+
+function Lesson({ session, settings, onReload }: LessonProps) {
   const router = useRouter();
-  const [state, dispatch] = useReducer(lessonReducer, session, initialState);
+  const [state, dispatch] = useReducer(
+    lessonReducer,
+    { session, listening: settings.listening_exercises },
+    initialState,
+  );
+  const soundOn = settings.sound_effects;
+  const sound = useCallback((name: Parameters<typeof playSound>[0]) => soundOn && playSound(name), [soundOn]);
   const [answer, setAnswer] = useState<AnswerBody | null>(null);
   const [quitting, setQuitting] = useState(false);
   const completing = useRef(false);
@@ -71,7 +88,7 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
     dispatch({ type: "check" });
     try {
       const result = await answerExercise(session.id, exercise.id, body);
-      playSound(result.correct ? "correct" : "wrong");
+      sound(result.correct ? "correct" : "wrong");
       dispatch({ type: "answered", result });
     } catch (error) {
       dispatch({ type: "check-failed" });
@@ -89,10 +106,10 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
     try {
       const result = await answerExercise(session.id, exercise.id, { pair });
       if (result.exercise_completed) {
-        playSound("correct");
+        sound("correct");
         dispatch({ type: "answered", result });
       } else {
-        if (!result.correct) playSound("wrong");
+        if (!result.correct) sound("wrong");
         dispatch({ type: "hearts", hearts: result.hearts });
       }
       return result;
@@ -140,7 +157,7 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
     completing.current = true;
     completeSession(session.id).then(
       (result) => {
-        playSound("complete");
+        sound("complete");
         dispatch({ type: "finished", result });
       },
       (error: unknown) => {
@@ -148,7 +165,7 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
         leave();
       },
     );
-  }, [phase, session.id, leave]);
+  }, [phase, session.id, leave, sound]);
 
   // Enter checks, then continues, as on Duolingo. Footer and dialog buttons handle Enter themselves;
   // a focused choice or tile in the exercise doesn't (Enter there means "check", not "pick again").
@@ -187,7 +204,13 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
 
   return (
     <div className="flex min-h-svh flex-col">
-      <LessonHeader progress={state.completed / state.total} combo={state.combo} hearts={state.hearts} onQuit={quit} />
+      <LessonHeader
+        progress={state.completed / state.total}
+        // "5 in a row" is one of the motivational messages the settings page can turn off.
+        combo={settings.motivational_messages ? state.combo : 0}
+        hearts={state.hearts}
+        onQuit={quit}
+      />
 
       {phase === "review" ? (
         <ReviewIntro onContinue={proceed} />

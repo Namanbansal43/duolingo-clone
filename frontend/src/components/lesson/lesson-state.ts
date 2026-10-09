@@ -61,9 +61,11 @@ export type LessonAction =
 
 const PRAISE = ["Good job!", "Great job!", "Awesome!", "Nicely done!", "Amazing!", "Excellent!"];
 
-export function initialState(session: LessonSession): LessonState {
+export function initialState({ session, listening }: { session: LessonSession; listening: boolean }): LessonState {
   const done = new Set(session.completed_exercise_ids);
-  const queue = session.exercises.map((e) => e.id).filter((id) => !done.has(id));
+  // "Listening exercises" switched off in settings: they are left out, as "Can't listen now" does mid-lesson.
+  const left = session.exercises.filter((e) => !done.has(e.id) && (listening || e.type !== "listen"));
+  const queue = left.map((e) => e.id);
   const outOfHearts = session.mode === "lesson" && session.hearts.current === 0;
   return {
     session,
@@ -71,7 +73,7 @@ export function initialState(session: LessonSession): LessonState {
     retried: [],
     reviewShown: false,
     completed: done.size,
-    total: session.exercises.length,
+    total: done.size + left.length,
     combo: 0,
     turn: 0,
     hearts: session.hearts,

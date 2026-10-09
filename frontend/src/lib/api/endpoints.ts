@@ -1,3 +1,5 @@
+import { syncClock } from "@/lib/clock";
+
 import { apiFetch } from "./client";
 import type {
   Achievement,
@@ -8,11 +10,13 @@ import type {
   Completion,
   CoursePath,
   DailyXp,
+  DemoClock,
   Leaderboard,
   LessonSession,
   Me,
   MeUpdate,
   Onboarding,
+  UserSettings,
 } from "./types";
 
 const post = (body?: unknown): RequestInit => ({
@@ -20,14 +24,23 @@ const post = (body?: unknown): RequestInit => ({
   body: body === undefined ? undefined : JSON.stringify(body),
 });
 
-export const getMe = () => apiFetch<Me>("/me");
+const patch = (body: unknown): RequestInit => ({ method: "PATCH", body: JSON.stringify(body) });
 
-export const updateMe = (changes: MeUpdate) =>
-  apiFetch<Me>("/me", { method: "PATCH", body: JSON.stringify(changes) });
+/** Every response with the learner carries the app's time; countdowns on the page measure from it. */
+const learner = (path: string, init?: RequestInit) => apiFetch<Me>(path, init).then(syncClock);
 
-export const completeOnboarding = (choices: Onboarding) => apiFetch<Me>("/me/onboarding", post(choices));
+export const getMe = () => learner("/me");
 
-export const refillHearts = () => apiFetch<Me>("/me/hearts/refill", post());
+export const updateMe = (changes: MeUpdate) => learner("/me", patch(changes));
+
+export const completeOnboarding = (choices: Onboarding) => learner("/me/onboarding", post(choices));
+
+export const refillHearts = () => learner("/me/hearts/refill", post());
+
+export const getSettings = () => apiFetch<UserSettings>("/me/settings");
+
+export const updateSettings = (changes: Partial<UserSettings>) =>
+  apiFetch<UserSettings>("/me/settings", patch(changes));
 
 export const getAchievements = () => apiFetch<Achievement[]>("/me/achievements");
 
@@ -54,3 +67,15 @@ export const answerExercise = (sessionId: number, exerciseId: number, answer: An
 export const completeSession = (sessionId: number) => apiFetch<Completion>(`/sessions/${sessionId}/complete`, post());
 
 export const quitSession = (sessionId: number) => apiFetch<null>(`/sessions/${sessionId}/quit`, post());
+
+// Demo tools on the settings page
+
+export const getDemoClock = () => apiFetch<DemoClock>("/demo/clock");
+
+/** Moves the app's clock forward a day: streaks, hearts and the league week all follow it. */
+export const advanceDemoDay = () => apiFetch<DemoClock>("/demo/clock/advance", post());
+
+export const emptyHearts = () => learner("/demo/hearts/empty", post());
+
+/** Back to the seeded learner and real time; preferences are kept. */
+export const resetDemo = () => learner("/demo/reset", post());

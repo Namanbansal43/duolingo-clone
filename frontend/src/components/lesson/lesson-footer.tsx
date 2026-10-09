@@ -44,7 +44,7 @@ export function FeedbackBar({ feedback, onContinue }: { feedback: Feedback; onCo
     >
       <div className={cn(ROW, "flex-col items-stretch sm:flex-row sm:items-center")}>
         <div className="flex flex-1 items-center gap-4">
-          <span className="hidden size-20 shrink-0 items-center justify-center rounded-full bg-white sm:flex">
+          <span className="hidden size-20 shrink-0 items-center justify-center rounded-full bg-page sm:flex">
             <Image
               src={correct ? "/app/lesson/feedback-correct.svg" : "/app/lesson/feedback-wrong.svg"}
               width={correct ? 41 : 30}

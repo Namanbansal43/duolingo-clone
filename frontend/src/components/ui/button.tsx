@@ -10,16 +10,16 @@ import { cn } from "@/lib/cn";
 
 const variants = {
   primary:
-    "bg-duo-green text-white shadow-[0_4px_0_var(--color-duo-green-shade)] hover:bg-duo-green-hover",
+    "bg-duo-green text-on-accent shadow-[0_4px_0_var(--color-duo-green-shade)] hover:bg-duo-green-hover",
   secondary:
-    "bg-duo-blue text-white shadow-[0_4px_0_var(--color-duo-blue-shade)] hover:bg-duo-blue-hover",
+    "bg-duo-blue text-on-accent shadow-[0_4px_0_var(--color-duo-blue-shade)] hover:bg-duo-blue-hover",
   danger:
-    "bg-duo-red text-white shadow-[0_4px_0_var(--color-duo-red-shade)] hover:brightness-105",
+    "bg-duo-red text-on-accent shadow-[0_4px_0_var(--color-duo-red-shade)] hover:brightness-105",
   super:
     "bg-duo-purple text-white shadow-[0_4px_0_var(--color-duo-purple-shade)] hover:brightness-105",
-  // White button with a grey outline: 2px border plus a 2px ledge.
+  // Page-coloured button with a grey outline: 2px border plus a 2px ledge.
   outline:
-    "border-2 border-line bg-white text-duo-blue shadow-[0_2px_0_var(--color-line)] hover:bg-snow active:translate-y-[2px]",
+    "border-2 border-line bg-page text-duo-blue shadow-[0_2px_0_var(--color-line)] hover:bg-snow active:translate-y-[2px]",
   // White button for dark backgrounds (Super section).
   white: "bg-white text-super-ink shadow-[0_4px_0_var(--color-super-ledge)] hover:brightness-95",
   ghost: "bg-transparent text-ink-faint hover:bg-snow active:translate-y-0",

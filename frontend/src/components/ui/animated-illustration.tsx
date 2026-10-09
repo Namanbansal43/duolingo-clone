@@ -17,7 +17,7 @@ export type AnimationLayer = {
 };
 
 type AnimatedIllustrationProps = {
-  /** Static SVGs (stacked) shown until the animation is ready, and kept for reduced-motion users. */
+  /** Static SVGs (stacked) shown until the animation is ready, and kept when motion is off. */
   posters: string[];
   layers: AnimationLayer[];
   width: number;
@@ -49,7 +49,11 @@ export function AnimatedIllustration({
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Reduced-motion users, and learners who switched Animations off in settings, keep the poster.
+    const still =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      document.documentElement.dataset.animations === "off";
+    if (!root || still) return;
 
     let animations: AnimationItem[] = [];
     let started = false;

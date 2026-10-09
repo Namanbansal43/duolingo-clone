@@ -89,7 +89,7 @@ function ChestButton({ node, onSelect }: { node: PathNodeData; onSelect: (node: 
       )}
     >
       {locked ? (
-        <Image src="/app/path/chest-locked.svg" width={80} height={90} alt="" />
+        <Image src="/app/path/chest-locked.svg" width={80} height={90} alt="" className="dark:opacity-40" />
       ) : (
         <Image
           src="/app/cards/quest-chest.svg"
@@ -135,9 +135,9 @@ function StartBubble() {
       aria-hidden
       className="pointer-events-none absolute bottom-[calc(100%+2px)] left-1/2 -translate-x-1/2 animate-hover-bounce"
     >
-      <div className="relative rounded-[10px] border-2 border-line bg-white p-3 text-[17px] leading-[17px] font-bold tracking-[0.03em] text-duo-green uppercase">
+      <div className="relative rounded-[10px] border-2 border-line bg-page p-3 text-[17px] leading-[17px] font-bold tracking-[0.03em] text-path-green uppercase">
         Start
-        <span className="absolute -bottom-2 left-1/2 size-5 -translate-x-1/2 rotate-45 rounded-[2px] border-r-2 border-b-2 border-line bg-white" />
+        <span className="absolute -bottom-2 left-1/2 size-5 -translate-x-1/2 rotate-45 rounded-[2px] border-r-2 border-b-2 border-line bg-page" />
       </div>
     </div>
   );
@@ -157,7 +157,7 @@ function NodePopover({ node, offset, onStart }: { node: PathNodeData; offset: nu
       aria-label={node.title}
       className={cn(
         "absolute top-[calc(100%+26px)] left-1/2 w-[min(295px,calc(100vw-32px))] -translate-x-1/2 rounded-[15px] p-4",
-        locked ? "border-2 border-line bg-snow text-ink-faint" : "bg-duo-green text-white",
+        locked ? "border-2 border-line bg-snow text-ink-faint" : "bg-path-green text-white",
       )}
     >
       {/* The pointer stays under the node even though the card is centred on the path. */}
@@ -165,7 +165,7 @@ function NodePopover({ node, offset, onStart }: { node: PathNodeData; offset: nu
         aria-hidden
         className={cn(
           "absolute -top-2 size-4 -translate-x-1/2 rotate-45 rounded-[2px]",
-          locked ? "-top-[9px] border-t-2 border-l-2 border-line bg-snow" : "bg-duo-green",
+          locked ? "-top-[9px] border-t-2 border-l-2 border-line bg-snow" : "bg-path-green",
         )}
         style={{ left: `calc(50% + ${offset}px)` }}
       />
@@ -179,7 +179,7 @@ function NodePopover({ node, offset, onStart }: { node: PathNodeData; offset: nu
           "mt-4 flex h-[46px] w-full items-center justify-center rounded-2xl text-[15px] font-bold tracking-[0.8px] uppercase outline-none",
           locked
             ? "bg-line text-ink-faint"
-            : "bg-white text-duo-green shadow-[0_4px_0_rgba(0,0,0,0.15)] hover:bg-snow focus-visible:ring-4 focus-visible:ring-white/60 active:translate-y-1 active:shadow-none",
+            : "bg-white text-path-green shadow-[0_4px_0_rgba(0,0,0,0.15)] hover:bg-white/90 focus-visible:ring-4 focus-visible:ring-white/60 active:translate-y-1 active:shadow-none",
         )}
       >
         {locked ? "Locked" : node.state === "completed" ? "Practice +5 XP" : "Start +10 XP"}

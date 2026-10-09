@@ -15,13 +15,13 @@ export function nodeOffset(unitIndex: number, nodeIndex: number, node: PathNode)
 
 /** Units in a section share its colour; this course is a single green section. */
 export const UNIT_COLOR = {
-  face: "var(--color-duo-green)",
-  ledge: "#46a302", // the face colour under a 20% black overlay, like Duolingo's node ledges
+  face: "var(--color-path-green)",
+  ledge: "var(--color-path-green-ledge)", // the face under a 20% black overlay, like Duolingo's ledges
 };
 
 export const LOCKED_COLOR = {
   face: "var(--color-line)",
-  ledge: "#b7b7b7",
+  ledge: "var(--color-path-locked-ledge)",
 };
 
 export const SECTION_LABEL = "Section 1";

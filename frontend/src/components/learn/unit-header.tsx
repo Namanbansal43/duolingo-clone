@@ -8,8 +8,8 @@ import { SECTION_LABEL } from "./path-layout";
 /** The green banner pinned above the path; it shows whichever unit is being scrolled through. */
 export function UnitHeader({ unit }: { unit: PathUnit }) {
   return (
-    <div className="sticky top-[58px] z-10 bg-white px-4 pb-1 md:px-0 lg:top-0 lg:pt-6 lg:pb-0">
-      <div className="flex min-h-[90px] items-center justify-between gap-4 rounded-[13px] bg-duo-green py-4 pr-4 pl-4 text-white max-md:min-h-[82px] max-md:items-stretch max-md:py-0 max-md:pr-0">
+    <div className="sticky top-[58px] z-10 bg-page px-4 pb-1 md:px-0 lg:top-0 lg:pt-6 lg:pb-0">
+      <div className="flex min-h-[90px] items-center justify-between gap-4 rounded-[13px] bg-path-green py-4 pr-4 pl-4 text-white max-md:min-h-[82px] max-md:items-stretch max-md:py-0 max-md:pr-0">
         <div className="min-w-0 max-md:self-center max-md:py-3">
           <button
             type="button"

@@ -11,7 +11,7 @@ export function Toaster() {
         unstyled: true,
         classNames: {
           toast:
-            "flex w-[356px] items-center gap-3 rounded-2xl border-2 border-line bg-white px-4 py-3 font-extrabold text-ink shadow-[0_4px_0_var(--color-line)]",
+            "flex w-[356px] items-center gap-3 rounded-2xl border-2 border-line bg-page px-4 py-3 font-extrabold text-ink shadow-[0_4px_0_var(--color-line)]",
         },
       }}
     />
