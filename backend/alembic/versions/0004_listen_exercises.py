@@ -25,7 +25,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # A listen exercise is a word bank whose prompt is heard instead of read; keep it, and its answers, as one.
+    # A listen exercise is a word bank whose prompt is heard instead of read,
+    # so it is kept, with its answers, as a word bank.
     op.execute("UPDATE exercises SET type = 'word_bank' WHERE type = 'listen'")
     with op.batch_alter_table("exercises", schema=None) as batch_op:
         batch_op.drop_constraint(op.f("ck_exercises_type_known"), type_="check")
