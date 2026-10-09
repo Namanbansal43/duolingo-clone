@@ -89,6 +89,69 @@ export type Onboarding = {
   timezone: string;
 };
 
+export type ExerciseType = "multiple_choice" | "word_bank" | "match_pairs" | "fill_blank" | "type_answer" | "listen";
+
+export type ExerciseOption = {
+  id: number;
+  text: string;
+};
+
+/** One challenge of a lesson, without its solution. */
+export type Exercise = {
+  id: number;
+  type: ExerciseType;
+  instruction: string;
+  /** For fill_blank the sentence contains ___; null for match_pairs. */
+  prompt: string | null;
+  prompt_language: string | null;
+  /** Choices or word tiles, already shuffled. */
+  options: ExerciseOption[];
+  pairs: { left: string[]; right: string[] } | null;
+};
+
+export type LessonSession = {
+  id: number;
+  mode: "lesson" | "practice";
+  status: "in_progress" | "completed" | "failed" | "abandoned";
+  started_at: string;
+  node: { id: number; title: string };
+  lesson_position: number;
+  lessons_total: number;
+  exercises: Exercise[];
+  completed_exercise_ids: number[];
+  hearts: Hearts;
+};
+
+/** What a learner sends for one exercise; which field depends on its type. */
+export type AnswerBody = {
+  option_ids?: number[];
+  text?: string;
+  pair?: [string, string];
+  skipped?: boolean;
+};
+
+export type Verdict = "correct" | "other_solution" | "typo" | "wrong";
+
+export type AnswerResult = {
+  correct: boolean;
+  verdict: Verdict;
+  solution: string | null;
+  exercise_completed: boolean;
+  hearts: Hearts;
+};
+
+export type Completion = {
+  xp_earned: number;
+  total_xp: number;
+  xp_today: number;
+  daily_goal_xp: number;
+  accuracy: number;
+  duration_seconds: number;
+  streak: { length: number; longest: number; extended: boolean };
+  hearts: Hearts;
+  node: { id: number; lessons_completed: number; lessons_total: number; completed: boolean };
+};
+
 export type ApiErrorBody = {
   error: {
     code: string;

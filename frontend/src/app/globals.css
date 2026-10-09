@@ -14,6 +14,8 @@
   --breakpoint-wide: 72.5rem; /* 1160px; rem like the default breakpoints, so they sort correctly */
 
   --animate-hover-bounce: hover-bounce 1.2s ease-in-out infinite;
+  --animate-slide-up: slide-up 0.2s ease-out;
+  --animate-pop-in: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --color-duo-green: #58cc02;
   --color-duo-green-hover: #61e002;
@@ -70,6 +72,20 @@
   }
   50% {
     transform: translateY(-6px);
+  }
+}
+
+/* The lesson's feedback bar slides up from the bottom; celebrations pop in. */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
   }
 }
 

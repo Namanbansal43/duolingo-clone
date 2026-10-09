@@ -46,7 +46,7 @@ export function LearnView() {
       <div className="mx-auto flex max-w-[1056px] gap-12 md:px-6">
         <main className="mx-auto min-w-0 max-w-[592px] flex-1 lg:mx-0 lg:pt-6">
           {path ? (
-            <CoursePath path={path} onChange={learn.refresh} />
+            <CoursePath path={path} hearts={me.hearts} onChange={learn.refresh} />
           ) : (
             <div className="flex min-h-[60svh] flex-col items-center justify-center gap-6 px-4 text-center">
               <p className="text-[19px] font-bold text-ink">Pick a course to start learning.</p>

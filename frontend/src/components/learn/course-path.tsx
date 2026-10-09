@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { openChest } from "@/lib/api/endpoints";
-import type { CoursePath as CoursePathData, PathNode } from "@/lib/api/types";
-import { comingSoon } from "@/lib/coming-soon";
+import { OutOfHearts } from "@/components/app/out-of-hearts";
+import { ApiError } from "@/lib/api/client";
+import { openChest, startSession } from "@/lib/api/endpoints";
+import type { CoursePath as CoursePathData, Hearts, PathNode } from "@/lib/api/types";
 
 import { PathUnit } from "./path-unit";
 import { UnitHeader } from "./unit-header";
@@ -15,12 +17,16 @@ const HEADER_BOTTOM = 150;
 
 type CoursePathProps = {
   path: CoursePathData;
-  /** Called after something changes the learner's state (opening a chest), to reload path and stats. */
+  hearts: Hearts;
+  /** Called after something changes the learner's state (a chest, a refill), to reload path and stats. */
   onChange: () => Promise<void>;
 };
 
-export function CoursePath({ path, onChange }: CoursePathProps) {
+export function CoursePath({ path, hearts, onChange }: CoursePathProps) {
+  const router = useRouter();
   const [openNodeId, setOpenNodeId] = useState<number | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [outOfHearts, setOutOfHearts] = useState(false);
   const [currentUnit, setCurrentUnit] = useState(0);
   const sections = useRef<(HTMLElement | null)[]>([]);
 
@@ -75,7 +81,28 @@ export function CoursePath({ path, onChange }: CoursePathProps) {
     setOpenNodeId((current) => (current === node.id ? null : node.id));
   };
 
-  const start = () => comingSoon("Lessons");
+  // START (or PRACTICE) creates the session on the server, then the lesson page plays it.
+  const start = async (node: PathNode) => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      await startSession(node.id);
+      router.push("/lesson");
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "out_of_hearts") setOutOfHearts(true);
+      else toast(error instanceof Error ? error.message : "Couldn't start the lesson. Please try again.");
+    } finally {
+      // Next.js keeps this page's state while the lesson plays, so leave it ready for coming back.
+      setStarting(false);
+      setOpenNodeId(null);
+    }
+  };
+
+  // Practicing the latest finished node earns a heart back.
+  const practiceNode = path.units
+    .flatMap((unit) => unit.nodes)
+    .filter((node) => node.state === "completed" && node.kind !== "chest")
+    .at(-1);
 
   return (
     <>
@@ -90,9 +117,20 @@ export function CoursePath({ path, onChange }: CoursePathProps) {
           index={index}
           openNodeId={openNodeId}
           onSelect={select}
-          onStart={start}
+          onStart={(node) => void start(node)}
         />
       ))}
+      {outOfHearts && (
+        <OutOfHearts
+          hearts={hearts}
+          onRefilled={() => {
+            setOutOfHearts(false);
+            void onChange();
+          }}
+          onPractice={practiceNode ? () => start(practiceNode) : undefined}
+          onNoThanks={() => setOutOfHearts(false)}
+        />
+      )}
     </>
   );
 }
