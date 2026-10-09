@@ -43,16 +43,17 @@ def update_learner(db: Session, user: User, changes: MeUpdate) -> None:
 
 
 def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: datetime) -> None:
-    """Finish "Get started": the learner begins as a brand-new account, at the first node of the chosen
-    course. There is one built-in learner, so signing up clears their history (lesson sessions and their
-    answers, XP, path progress, achievements) and resets their stats; preferences on the settings page
-    are kept. Nothing changes if the course can't be studied."""
+    """Finish "Get started": the learner begins as a brand-new guest (no profile yet), at the first node of
+    the chosen course. There is one built-in learner, so this clears their history (lesson sessions and
+    their answers, XP, path progress, achievements) and resets their stats; preferences on the settings
+    page are kept. Nothing changes if the course can't be studied."""
     course = available_course(db, choices.active_course_id)
 
     for model in (XpEvent, LessonSession, UserSkillProgress, UserAchievement):
         db.execute(delete(model).where(model.user_id == user.id))  # answers go with their sessions
 
     user.created_at = now
+    user.is_guest = True
     user.active_course = course
     user.daily_goal_xp = choices.daily_goal_xp
     user.timezone = choices.timezone

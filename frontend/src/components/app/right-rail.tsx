@@ -13,7 +13,7 @@ const LEADERBOARD_UNLOCK_LESSONS = 10;
 const FOOTER_LINKS = ["About", "Blog", "Store", "Efficacy", "Careers", "Investors", "Terms", "Privacy"];
 
 /** The right-hand column on wide screens: stats, the page's cards, footer links. */
-export function RightRail({ me, children }: { me: Me; children: ReactNode }) {
+export function RightRail({ me, children }: { me: Me; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-6">
       <StatsBar me={me} />

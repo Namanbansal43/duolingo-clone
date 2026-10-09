@@ -17,6 +17,7 @@ def test_me_is_the_seeded_default_learner(client: TestClient) -> None:
 
     assert body["username"] == "alex"
     assert body["display_name"] == "Alex"
+    assert body["is_guest"] is False  # the demo learner has a profile
     assert body["active_course"]["title"] == "Spanish"
     assert body["daily_goal_xp"] == 20
     assert body["gems"] == 500
@@ -146,6 +147,7 @@ def test_get_started_begins_a_new_learner(client: TestClient, db: Session, learn
     assert me["active_course"]["title"] == "Spanish"
     assert (me["daily_goal_xp"], me["timezone"]) == (30, "Asia/Kolkata")
     assert me["joined_at"] == "2026-10-08T12:00:00Z"
+    assert me["is_guest"] is True  # no profile until they create one
     assert (me["total_xp"], me["xp_today"], me["lessons_completed"], me["gems"]) == (0, 0, 0, STARTING_GEMS)
     assert me["hearts"] == {"current": 5, "max": 5, "next_heart_at": None, "regen_minutes": 30}
     assert me["streak"] == {"length": 0, "extended_today": False, "longest": 0}

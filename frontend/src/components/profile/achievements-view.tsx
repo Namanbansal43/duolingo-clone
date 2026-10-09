@@ -3,28 +3,45 @@
 import { AchievementBadge } from "@/components/achievements/achievement-badge";
 import { PageError } from "@/components/app/page-error";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { getAchievements } from "@/lib/api/endpoints";
+import { getAchievements, getMe } from "@/lib/api/endpoints";
 import type { Achievement } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
 
-/** /profile/achievements ("View all"): every achievement with its level and progress towards the next. */
-export function AchievementsView() {
-  const achievements = useApi(getAchievements);
+import { GuestProfile } from "./guest-profile";
 
-  if (achievements.status === "error") {
-    return <PageError message={achievements.error.message} onRetry={achievements.retry} />;
+async function loadAchievements() {
+  const [me, achievements] = await Promise.all([getMe(), getAchievements()]);
+  return { isGuest: me.is_guest, achievements };
+}
+
+/**
+ * /profile/achievements ("View all"): every achievement with its level and progress towards the next.
+ * A guest has no profile yet, so they are asked to create one, as on /profile.
+ */
+export function AchievementsView() {
+  const page = useApi(loadAchievements);
+
+  if (page.status === "error") return <PageError message={page.error.message} onRetry={page.retry} />;
+  if (page.status === "success" && page.data.isGuest) {
+    return (
+      <main className="mx-auto max-w-[592px] md:pt-6">
+        <GuestProfile />
+      </main>
+    );
   }
   return (
     <main className="mx-auto max-w-[654px] px-4 pt-6 pb-12 md:pt-[70px]">
-      <h1 className="text-[24px] leading-[26px] font-bold text-ink-strong">Achievements</h1>
-      {achievements.status === "loading" ? (
-        <div aria-busy className="mt-4 h-[548px] animate-pulse rounded-2xl bg-snow" />
+      {page.status === "loading" ? (
+        <div aria-busy className="mt-[42px] h-[548px] animate-pulse rounded-2xl bg-snow" />
       ) : (
-        <ul className="mt-4 rounded-2xl border-2 border-line">
-          {achievements.data.map((achievement) => (
-            <AchievementRow key={achievement.key} achievement={achievement} />
-          ))}
-        </ul>
+        <>
+          <h1 className="text-[24px] leading-[26px] font-bold text-ink-strong">Achievements</h1>
+          <ul className="mt-4 rounded-2xl border-2 border-line">
+            {page.data.achievements.map((achievement) => (
+              <AchievementRow key={achievement.key} achievement={achievement} />
+            ))}
+          </ul>
+        </>
       )}
     </main>
   );

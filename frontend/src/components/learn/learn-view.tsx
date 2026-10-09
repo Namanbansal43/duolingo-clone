@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { CreateProfileCard } from "@/components/app/create-profile";
 import { PageColumns } from "@/components/app/page-columns";
 import { PageError } from "@/components/app/page-error";
 import { DailyQuestCard, LeagueCard, RightRail } from "@/components/app/right-rail";
@@ -33,6 +34,7 @@ export function LearnView() {
         <RightRail me={me}>
           <LeagueCard lessonsCompleted={me.lessons_completed} />
           <DailyQuestCard xp={me.xp_today} goal={me.daily_goal_xp} />
+          {me.is_guest && <CreateProfileCard />}
         </RightRail>
       }
     >

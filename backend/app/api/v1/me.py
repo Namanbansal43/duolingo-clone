@@ -122,6 +122,7 @@ def _me_out(db: Session, user: User, clock: Clock, settings: Settings) -> MeOut:
         display_name=user.display_name,
         joined_at=user.created_at,
         timezone=user.timezone,
+        is_guest=user.is_guest,
         active_course=CourseOut.model_validate(user.active_course) if user.active_course else None,
         daily_goal_xp=user.daily_goal_xp,
         total_xp=user.total_xp,

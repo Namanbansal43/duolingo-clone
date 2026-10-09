@@ -34,7 +34,8 @@ def test_migrations_roll_back_and_forward(settings: Settings) -> None:
 
 
 def test_upgrading_keeps_existing_learners(settings: Settings) -> None:
-    """0002 rebuilds the users table to add streak_freezes; the rows must survive the copy."""
+    """Later migrations rebuild the users table (0002 adds streak_freezes, 0005 is_guest); the rows must
+    survive each copy."""
     engine = create_db_engine(settings.database_url)
     run_migrations(engine, "0001")
     with engine.begin() as connection:
@@ -57,12 +58,12 @@ def test_upgrading_keeps_existing_learners(settings: Settings) -> None:
 
     with engine.connect() as connection:
         row = connection.execute(
-            text("SELECT username, active_course_id, total_xp, gems, streak_freezes FROM users")
+            text("SELECT username, active_course_id, total_xp, gems, streak_freezes, is_guest FROM users")
         ).one()
         foreign_keys_on = connection.execute(text("PRAGMA foreign_keys")).scalar()
     engine.dispose()
 
-    assert tuple(row) == ("early_bird", 1, 120, 45, 0)
+    assert tuple(row) == ("early_bird", 1, 120, 45, 0, 0)  # existing learners have profiles
     assert foreign_keys_on == 1  # migrations turn them off; app connections must get them back
 
 

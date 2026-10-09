@@ -16,7 +16,9 @@ import { useApi } from "@/lib/api/use-api";
 import { cn } from "@/lib/cn";
 import { isFlagCode } from "@/lib/languages";
 
+import { AvatarBanner } from "./avatar-banner";
 import { FriendsCard } from "./friends-card";
+import { GuestProfile } from "./guest-profile";
 import { XpChart } from "./xp-chart";
 
 async function loadProfile() {
@@ -26,7 +28,7 @@ async function loadProfile() {
 
 /**
  * /profile: the learner's own profile, laid out like a profile on duolingo.com: avatar, name and join
- * date, then statistics, XP this week and achievements.
+ * date, then statistics, XP this week and achievements. A guest is asked to create a profile instead.
  */
 export function ProfileView() {
   const profile = useApi(loadProfile);
@@ -35,6 +37,13 @@ export function ProfileView() {
   if (profile.status === "error") return <PageError message={profile.error.message} onRetry={profile.retry} />;
 
   const { me, achievements, week } = profile.data;
+  if (me.is_guest) {
+    return (
+      <PageColumns me={me} rail={<RightRail me={me} />}>
+        <GuestProfile />
+      </PageColumns>
+    );
+  }
   return (
     <PageColumns
       me={me}
@@ -93,17 +102,7 @@ function ProfileHeader({ me }: { me: Me }) {
   const course = me.active_course;
   return (
     <header className="border-b-2 border-line pb-8">
-      {/* No profile picture yet: Duolingo's empty avatar on a light blue banner. */}
-      <div className="relative h-[180px] overflow-hidden rounded-[15px] bg-duo-blue-tint sm:h-[224px]">
-        <Image
-          src="/app/profile/avatar.svg"
-          width={144}
-          height={266}
-          alt=""
-          priority
-          className="absolute top-[30px] left-1/2 w-[116px] -translate-x-1/2 sm:top-[39px] sm:w-[144px]"
-        />
-      </div>
+      <AvatarBanner />
       <div className="mt-7 flex items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-[28px] leading-[34px] font-bold text-ink-strong">{me.display_name}</h1>

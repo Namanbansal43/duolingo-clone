@@ -34,6 +34,8 @@ export type Me = {
   display_name: string;
   joined_at: string;
   timezone: string;
+  /** Started over through "Get started" without creating a profile: the profile page asks for one. */
+  is_guest: boolean;
   active_course: Course | null;
   daily_goal_xp: DailyGoalXp;
   total_xp: number;

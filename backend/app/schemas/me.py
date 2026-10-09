@@ -30,6 +30,9 @@ class MeOut(BaseModel):
     display_name: str
     joined_at: datetime
     timezone: str = Field(description="IANA time zone; decides when the learner's day starts.")
+    is_guest: bool = Field(
+        description='Started over through "Get started" without a profile; the profile page asks for one.'
+    )
     active_course: CourseOut | None
     daily_goal_xp: DailyGoal = Field(description="XP per day: 10 Casual, 20 Regular, 30 Serious, 50 Intense.")
     total_xp: int

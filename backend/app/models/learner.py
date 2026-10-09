@@ -35,6 +35,9 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")  # IANA name; decides "today"
+    # Started over through "Get started" without creating a profile. Sign-up is a placeholder, so like a
+    # guest on duolingo.com they are asked to create a profile instead of seeing one.
+    is_guest: Mapped[bool] = mapped_column(default=False, server_default=text("0"))
 
     active_course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="SET NULL"))
     daily_goal_xp: Mapped[int] = mapped_column(default=20)
