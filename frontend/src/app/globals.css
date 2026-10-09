@@ -49,6 +49,8 @@
   --color-duo-purple-shade: #a568cc;
 
   --color-duo-green-soft: #a5ed6e;
+  /* The Quests page's welcome banner; the same in both themes, as on duolingo.com. */
+  --color-quest-banner: #9069cd;
   /* The learning path keeps Duolingo's bright green in both themes. */
   --color-path-green: #58cc02;
   --color-path-green-ledge: #46a302;

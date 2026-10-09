@@ -2,7 +2,7 @@ import type { DarkModeChoice } from "@/lib/api/types";
 
 /** The app's own pages, which follow the dark mode setting. The landing page and "Get started" stay
  * light, as on duolingo.com. */
-const APP_PATH = /^\/(learn|leaderboard|profile|settings|lesson)(\/|$)/;
+const APP_PATH = /^\/(learn|leaderboard|quests|shop|profile|settings|lesson)(\/|$)/;
 
 export const isAppPath = (pathname: string) => APP_PATH.test(pathname);
 

@@ -12,8 +12,8 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Learn", href: "/learn", icon: "/app/nav/learn.svg", inTabBar: true },
   { label: "Leaderboards", href: "/leaderboard", icon: "/app/nav/leaderboards.svg", inTabBar: true },
-  { label: "Quests", href: null, icon: "/app/nav/quests.svg", inTabBar: true },
-  { label: "Shop", href: null, icon: "/app/nav/shop.svg", inTabBar: true },
+  { label: "Quests", href: "/quests", icon: "/app/nav/quests.svg", inTabBar: true },
+  { label: "Shop", href: "/shop", icon: "/app/nav/shop.svg", inTabBar: true },
   { label: "Profile", href: "/profile", icon: "/app/nav/profile.svg", inTabBar: true },
   { label: "More", href: null, icon: "/app/nav/more.svg", inTabBar: false, menu: true },
 ];
