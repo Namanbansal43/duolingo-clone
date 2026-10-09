@@ -21,7 +21,7 @@ import type { AnswerBody, LessonSession } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
 import { playSound } from "@/lib/sounds";
 
-import { AchievementUnlocked, LessonComplete, ReviewIntro, StreakExtended } from "./celebrations";
+import { AchievementUnlocked, LeaderboardUnlocked, LessonComplete, ReviewIntro, StreakExtended } from "./celebrations";
 import { ExerciseView } from "./exercises/exercise-view";
 import { CheckFooter, FeedbackBar } from "./lesson-footer";
 import { LessonHeader } from "./lesson-header";
@@ -177,6 +177,8 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
         return <LessonComplete result={state.result} onContinue={onContinue} />;
       case "streak":
         return <StreakExtended length={state.result.streak.length} onContinue={onContinue} />;
+      case "leaderboard":
+        return <LeaderboardUnlocked onContinue={onContinue} />;
       case "achievement":
         return <AchievementUnlocked key={screen.achievement.key} achievement={screen.achievement} onContinue={onContinue} />;
     }

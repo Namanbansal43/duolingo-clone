@@ -69,6 +69,50 @@ export type DailyXp = {
   xp: number;
 };
 
+/** One of the ten leagues, Bronze (position 1) to Diamond (10). */
+export type League = {
+  id: number;
+  position: number;
+  /** "Bronze"; shown as "Bronze League". */
+  name: string;
+  /** The top N move up a league at the end of the week (0 in Diamond). */
+  promotion_count: number;
+  /** The bottom N move down a league (0 in Bronze). */
+  demotion_count: number;
+};
+
+export type Standing = {
+  rank: number;
+  user_id: number;
+  display_name: string;
+  /** XP earned this league week. */
+  xp: number;
+  is_me: boolean;
+};
+
+export type WeekResult = {
+  week_start: string;
+  league: League;
+  rank: number;
+  outcome: "promoted" | "stayed" | "demoted";
+  next_league: League;
+};
+
+export type Leaderboard = {
+  unlocked: boolean;
+  lessons_to_unlock: number;
+  leagues: League[];
+  /** This week's league: joined, or the one the next lesson joins. Null while leaderboards are locked. */
+  league: League | null;
+  joined: boolean;
+  week_start: string;
+  week_ends_at: string;
+  /** Everyone in the league by XP this week; empty until joined. */
+  standings: Standing[];
+  last_result: WeekResult | null;
+  top_three_finishes: number;
+};
+
 export type NodeState = "completed" | "active" | "locked";
 
 export type PathNode = {
@@ -176,6 +220,8 @@ export type Completion = {
   node: { id: number; lessons_completed: number; lessons_total: number; completed: boolean };
   /** Achievements that went up a level, at their new level. */
   achievements: Achievement[];
+  /** This was the learner's 10th session: leaderboards opened and they entered the Bronze League. */
+  leaderboard_unlocked: boolean;
 };
 
 export type ApiErrorBody = {

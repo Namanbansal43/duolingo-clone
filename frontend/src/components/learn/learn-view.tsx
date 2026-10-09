@@ -5,18 +5,19 @@ import Link from "next/link";
 import { CreateProfileCard } from "@/components/app/create-profile";
 import { PageColumns } from "@/components/app/page-columns";
 import { PageError } from "@/components/app/page-error";
-import { DailyQuestCard, LeagueCard, RightRail } from "@/components/app/right-rail";
+import { DailyQuestCard, RightRail } from "@/components/app/right-rail";
+import { LeagueCard } from "@/components/leaderboard/league-card";
 import { buttonClasses } from "@/components/ui/button";
-import { getMe, getPath } from "@/lib/api/endpoints";
+import { getLeaderboard, getMe, getPath } from "@/lib/api/endpoints";
 import { useApi } from "@/lib/api/use-api";
 
 import { CoursePath } from "./course-path";
 
-/** The learner and the path of their active course (the path needs the course id, so these load in turn). */
+/** The learner, then (needing their course) the path, alongside this week's league for the rail. */
 async function loadLearn() {
-  const me = await getMe();
+  const [me, board] = await Promise.all([getMe(), getLeaderboard()]);
   const path = me.active_course ? await getPath(me.active_course.id) : null;
-  return { me, path };
+  return { me, board, path };
 }
 
 /** /learn: the learning path, with the leaderboard and daily quest cards in the right rail. */
@@ -26,13 +27,13 @@ export function LearnView() {
   if (learn.status === "loading") return <LearnSkeleton />;
   if (learn.status === "error") return <PageError message={learn.error.message} onRetry={learn.retry} />;
 
-  const { me, path } = learn.data;
+  const { me, board, path } = learn.data;
   return (
     <PageColumns
       me={me}
       rail={
         <RightRail me={me}>
-          <LeagueCard lessonsCompleted={me.lessons_completed} />
+          <LeagueCard board={board} />
           <DailyQuestCard xp={me.xp_today} goal={me.daily_goal_xp} />
           {me.is_guest && <CreateProfileCard />}
         </RightRail>

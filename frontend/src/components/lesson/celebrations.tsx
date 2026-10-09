@@ -182,3 +182,22 @@ export function AchievementUnlocked({ achievement, onContinue }: { achievement: 
     </Screen>
   );
 }
+
+/** The 10th finished lesson opens leaderboards: the learner enters this week's Bronze League. */
+export function LeaderboardUnlocked({ onContinue }: { onContinue: () => void }) {
+  return (
+    <Screen
+      footer={
+        <Button variant="secondary" size="xl" onClick={onContinue} autoFocus className="ml-auto w-full sm:w-auto sm:min-w-[150px]">
+          Continue
+        </Button>
+      }
+    >
+      <Image src="/app/leagues/bronze.svg" width={80} height={91} alt="" className="h-[137px] w-[120px] animate-pop-in" />
+      <h1 className="mt-8 text-[32px] leading-10 font-bold text-duo-gold">You unlocked Leaderboards!</h1>
+      <p className="mt-3 max-w-[420px] text-[19px] leading-7 text-ink-soft">
+        You entered the Bronze League. Earn XP this week to climb it and move up a league.
+      </p>
+    </Screen>
+  );
+}

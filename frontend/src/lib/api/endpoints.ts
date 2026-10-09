@@ -8,6 +8,7 @@ import type {
   Completion,
   CoursePath,
   DailyXp,
+  Leaderboard,
   LessonSession,
   Me,
   MeUpdate,
@@ -32,6 +33,9 @@ export const getAchievements = () => apiFetch<Achievement[]>("/me/achievements")
 
 /** XP per day for the last `days` days, ending today; oldest first. */
 export const getXpHistory = (days = 7) => apiFetch<DailyXp[]>(`/me/xp-history?days=${days}`);
+
+/** This week's league. Reading it brings the rivals' XP up to now and ranks any week that has ended. */
+export const getLeaderboard = () => apiFetch<Leaderboard>("/leaderboard");
 
 export const getCourses = () => apiFetch<CatalogCourse[]>("/courses");
 

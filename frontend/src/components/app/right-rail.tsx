@@ -7,9 +7,6 @@ import { cn } from "@/lib/cn";
 
 import { StatsBar } from "./stats-bar";
 
-/** Lessons a learner finishes before leaderboards open up. */
-const LEADERBOARD_UNLOCK_LESSONS = 10;
-
 const FOOTER_LINKS = ["About", "Blog", "Store", "Efficacy", "Careers", "Investors", "Terms", "Privacy"];
 
 /** The right-hand column on wide screens: stats, the page's cards, footer links. */
@@ -36,25 +33,6 @@ export function RightRail({ me, children }: { me: Me; children?: ReactNode }) {
 
 export function RailCard({ children, className }: { children: ReactNode; className?: string }) {
   return <section className={cn("rounded-2xl border-2 border-line p-[18px]", className)}>{children}</section>;
-}
-
-export function LeagueCard({ lessonsCompleted }: { lessonsCompleted: number }) {
-  const remaining = Math.max(0, LEADERBOARD_UNLOCK_LESSONS - lessonsCompleted);
-  return (
-    <RailCard>
-      <h2 className="text-[19px] leading-7 font-bold text-ink">
-        {remaining > 0 ? "Unlock Leaderboards!" : "Leaderboards unlocked!"}
-      </h2>
-      <div className="mt-7 flex items-center gap-3 pb-1">
-        <Image src="/app/cards/league-locked.svg" width={70} height={50} alt="" className="h-[50px] w-[70px] shrink-0 object-contain" />
-        <p className="pl-2 text-[17px] leading-[25px] font-medium text-ink-soft">
-          {remaining > 0
-            ? `Complete ${remaining} more ${remaining === 1 ? "lesson" : "lessons"} to start competing`
-            : "Weekly leagues are coming soon."}
-        </p>
-      </div>
-    </RailCard>
-  );
 }
 
 export function DailyQuestCard({ xp, goal }: { xp: number; goal: number }) {

@@ -17,11 +17,13 @@ export type Phase =
 
 /**
  * The screens after a finished lesson: always "Lesson complete!", then the streak celebration if today's
- * first lesson extended it, then one for each achievement that went up a level.
+ * first lesson extended it, "You unlocked Leaderboards!" after the 10th lesson, then one for each
+ * achievement that went up a level.
  */
 export type EndScreen =
   | { kind: "complete" }
   | { kind: "streak" }
+  | { kind: "leaderboard" }
   | { kind: "achievement"; achievement: Achievement };
 
 export type Feedback = {
@@ -122,6 +124,7 @@ function endScreens(result: Completion): EndScreen[] {
   return [
     { kind: "complete" },
     ...(result.streak.extended ? [{ kind: "streak" } as const] : []),
+    ...(result.leaderboard_unlocked ? [{ kind: "leaderboard" } as const] : []),
     ...result.achievements.map((achievement) => ({ kind: "achievement", achievement }) as const),
   ];
 }

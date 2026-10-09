@@ -10,7 +10,8 @@ import { PageError } from "@/components/app/page-error";
 import { RightRail } from "@/components/app/right-rail";
 import { Flag } from "@/components/icons/flag";
 import { ComingSoonLink } from "@/components/landing/coming-soon-link";
-import { getAchievements, getMe, getXpHistory } from "@/lib/api/endpoints";
+import { leagueBadge } from "@/components/leaderboard/league-art";
+import { getAchievements, getLeaderboard, getMe, getXpHistory } from "@/lib/api/endpoints";
 import type { Me } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
 import { cn } from "@/lib/cn";
@@ -22,8 +23,13 @@ import { GuestProfile } from "./guest-profile";
 import { XpChart } from "./xp-chart";
 
 async function loadProfile() {
-  const [me, achievements, week] = await Promise.all([getMe(), getAchievements(), getXpHistory(7)]);
-  return { me, achievements, week };
+  const [me, achievements, week, board] = await Promise.all([
+    getMe(),
+    getAchievements(),
+    getXpHistory(7),
+    getLeaderboard(),
+  ]);
+  return { me, achievements, week, board };
 }
 
 /**
@@ -36,7 +42,7 @@ export function ProfileView() {
   if (profile.status === "loading") return <ProfileSkeleton />;
   if (profile.status === "error") return <PageError message={profile.error.message} onRetry={profile.retry} />;
 
-  const { me, achievements, week } = profile.data;
+  const { me, achievements, week, board } = profile.data;
   if (me.is_guest) {
     return (
       <PageColumns me={me} rail={<RightRail me={me} />}>
@@ -66,8 +72,18 @@ export function ProfileView() {
             />
             <StatCard icon="/app/profile/xp.svg" value={me.total_xp} label="Total XP" muted={me.total_xp === 0} />
             {/* Leagues open after 10 lessons; until then there is no league to show. */}
-            <StatCard icon="/app/profile/league-none.svg" value="None" label="Current league" muted />
-            <StatCard icon="/app/profile/top-three-off.svg" value={0} label="Top 3 finishes" muted />
+            <StatCard
+              icon={board.league ? leagueBadge(board.league) : "/app/profile/league-none.svg"}
+              value={board.league?.name ?? "None"}
+              label="Current league"
+              muted={!board.league}
+            />
+            <StatCard
+              icon={board.top_three_finishes > 0 ? "/app/profile/top-three.svg" : "/app/profile/top-three-off.svg"}
+              value={board.top_three_finishes}
+              label="Top 3 finishes"
+              muted={board.top_three_finishes === 0}
+            />
           </div>
         </Section>
 
