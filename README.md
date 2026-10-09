@@ -4,8 +4,8 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 
 | Part | Stack | Status |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile |
-| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course; learner, path, lesson and achievement API |
+| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile, leaderboard |
+| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course and rivals; learner, path, lesson, achievement and league API |
 
 ## Running the backend
 
@@ -67,6 +67,7 @@ defaults to `http://localhost:8000`; set `API_URL` (see `frontend/.env.example`)
 | `/lesson` | The lesson being played, full screen (below) |
 | `/profile` | The learner's profile: statistics, XP this week, achievements (below) |
 | `/profile/achievements` | Every achievement with its progress ("View all") |
+| `/leaderboard` | This week's league: 30 learners ranked by XP (below) |
 
 ### "Get started" flow
 
@@ -99,9 +100,10 @@ Measured against duolingo.com's own `/learn` page (opened as a guest) at 1280, 1
   Learn, Leaderboards, Quests, Shop, Profile and More. It is 256 px wide with labels from 1160 px, icons only
   below that, and becomes a bottom tab bar on phones. Pages that aren't built yet show a "coming soon" message.
 - **Right rail** (1024 px and up; a stats bar across the top below that): course flag, streak, gems and hearts
-  from `GET /api/v1/me` (switching courses is "coming soon", as only Spanish has content); an "Unlock
-  Leaderboards!" card counting down the 10 lessons that open leaderboards; and the daily quest, which tracks
-  today's XP against the daily goal.
+  from `GET /api/v1/me` (switching courses is "coming soon", as only Spanish has content); the league card
+  (`GET /api/v1/leaderboard`): "Unlock Leaderboards!" counting down the 10 lessons that open them, then the
+  league with "You're ranked #12" and VIEW LEAGUE; and the daily quest, which tracks today's XP against the daily
+  goal.
 - **The path** (`GET /api/v1/courses/{id}/path`): units in order, each with a sticky green header that follows
   the unit being scrolled through, and nodes that snake left and right at Duolingo's offsets (0, 45 and 70 px).
   Completed nodes show a check, the next one has a progress ring and a bouncing START bubble, and the rest are
@@ -140,8 +142,9 @@ Each exercise type has its own view, picked by a small registry (`frontend/src/c
   out-of-hearts dialog offers a refill for 350 gems, practice to earn one back, or ending the lesson.
 - **Quitting** after any progress asks "Wait, don't go! You'll lose your progress if you quit now".
 - **The end**: "Lesson complete!" with three cards (XP, accuracy, time), then, for the day's first lesson, the
-  streak screen with the flame, the new count and the days around today, then "Achievement unlocked!" for each
-  achievement that went up a level, with its badge and what the next level needs.
+  streak screen with the flame, the new count and the days around today, then "You unlocked Leaderboards!" after
+  the 10th lesson, then "Achievement unlocked!" for each achievement that went up a level, with its badge and
+  what the next level needs.
 - **Audio** (a bonus in the brief): Spanish is read aloud with the browser's text-to-speech; speaker buttons
   replay it, and "Can't listen now" skips the listening exercises. Sound effects are synthesised with the Web
   Audio API, so there are no audio files.
@@ -160,8 +163,8 @@ achievement's next level).
 
 - **Header**: Duolingo's empty avatar on a light blue banner, name, username, join month, Following and Followers
   (friends are a placeholder the brief allows, so both are 0 and say "coming soon"), and the course flag.
-- **Statistics**: day streak, total XP, current league and top 3 finishes. Leagues arrive with the leaderboard, so
-  for now the league reads "None" and there are no top 3 finishes.
+- **Statistics**: day streak, total XP, current league (with its badge; "None" until leaderboards open) and top
+  3 finishes, the last two from `GET /api/v1/leaderboard`.
 - **XP this week**: a line chart of the last 7 days from `GET /api/v1/me/xp-history`, drawn as plain SVG at
   duolingo.com's proportions, with the week's total.
 - **Achievements**: a row of badges in Duolingo's artwork, coloured once reached and gold at the top level;
@@ -174,6 +177,26 @@ achievement's next level).
 **Where XP shows.** The brief lists XP in the top bar, but duolingo.com's top bar has only the flag, streak, gems
 and hearts. To keep that bar identical, total XP is on the profile, today's XP is in the Daily Quests card on
 `/learn`, and each lesson's XP is on its result screen.
+
+### `/leaderboard`: weekly leagues
+
+Measured against duolingo.com's leaderboard page (opened as a guest), with the wording of its active league
+taken from duolingo.com's own interface strings ("Top 7 advance to the next league", "Promotion zone", "You
+finished #3 and advanced to the Silver League"...).
+
+- **Header**: the ten league badges in a row, centred on the learner's league (leagues passed in colour, the
+  ones above locked), the league's name, "Top 7 advance to the next league" and the time left in the week.
+- **Standings**: the learner and 29 seeded rivals, by XP this week. Ranks 1 to 3 get medals; ranks in the
+  promotion zone are green and those in the demotion zone red, with a "Promotion zone" / "Demotion zone" line
+  between them. The learner's row is highlighted. Avatars are initials on a colour, like a Duolingo learner
+  without a picture.
+- **Before joining**: with leaderboards locked the page says "Unlock Leaderboards! Complete 10 more lessons to
+  start competing"; once open, each week starts with "Complete a lesson to join this week's leaderboard". Both
+  show Duolingo's grey placeholder list and START A LESSON, and the learner's own empty row at the bottom.
+- **A new week**: the first visit after a week ends shows how it went ("You finished #3 and advanced to the
+  Silver League", "...kept your position in...", "...dropped down to..."), once.
+- **Live rivals**: the rivals keep practising through the week (see the rules below), so ranks change between
+  visits even without playing.
 
 ### Game rules so far
 
@@ -189,7 +212,9 @@ and hearts. To keep that bar identical, total XP is on the profile, today's XP i
 | Earning hearts back | Practice gives one back; a refill costs 350 gems | `backend/app/services/rules.py` |
 | Streak | The day's first finished lesson or practice adds a day (or starts again at 1 after a gap), in the learner's time zone; reads 0 after a missed day | `backend/app/services/streak.py` |
 | Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes) | `backend/app/models/learner.py` |
-| Leaderboards | Open after 10 finished lessons | `frontend/src/components/app/right-rail.tsx` |
+| Leaderboards | Open after 10 finished lessons (practice included); then each week, finishing a lesson joins that week's league | `backend/app/services/rules.py`, `leagues.py` |
+| Leagues | Bronze, Silver, Gold, Sapphire, Ruby, Emerald, Amethyst, Pearl, Obsidian, Diamond. A week runs Monday to Sunday in the learner's time zone; 30 learners compete by XP earned that week. The top 7 move up a league and the bottom 5 down (none down from Bronze, none up from Diamond) | `backend/app/seed/data.py`, `backend/app/services/leagues.py` |
+| Rivals | 29 seeded learners, from keen to occasional. They follow the learner from league to league. Each rival's day (whether they practise, when, and how much XP) is fixed by their id and the date, and is written as real XP events whenever the leaderboard is read, so no background job runs | `backend/app/services/leagues.py` |
 | Achievements | Wildfire: longest streak of 3, 7, 14 ... 365 days (10 levels). Sage: 100, 250, 500 ... 30,000 XP (10 levels). Scholar: 5, 10, 25, 50 lessons. Sharpshooter: 3, 10, 25, 50 lessons without a mistake. Practice sessions count as lessons. Levels are checked when a session finishes and are never lost | `backend/app/seed/data.py`, `backend/app/services/achievements.py` |
 | New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak, as a guest without a profile | `backend/app/services/learner.py` |
 
@@ -199,8 +224,9 @@ The seeded learner starts partway through Unit 1, so every node state is visible
 finished, "Introduce yourself" at lesson 2 of 2, and the rest locked. Behind that are 3 real lessons on the 3
 days before the database was first seeded: sessions, XP events, 30 XP and a 3-day streak that today's first lesson
 extends. Those lessons have already earned level 1 of Wildfire (3-day streak) and Sharpshooter (3 lessons
-without a mistake); two more sessions, practice included, unlock Scholar. This is the learner that "I already
-have an account" opens. Finishing "Get started" replaces them with a brand-new guest at the first node;
+without a mistake); two more sessions, practice included, unlock Scholar. Leaderboards normally open after 10
+lessons, but this learner is already in this week's Bronze League with the 29 rivals, whose XP runs from the
+Monday of the week the database was seeded. This is the learner that "I already have an account" opens. Finishing "Get started" replaces them with a brand-new guest at the first node;
 `python -m app.seed --reset` restores this starting point, profile included.
 
 The seed only ever adds what is missing, so it never rewrites content a database already has. After the course
@@ -209,7 +235,7 @@ content changes (the lesson player step trimmed each lesson node to 2 lessons), 
 
 ## Database
 
-16 tables covering course content, learner progress, lesson history, XP and achievements. The ER diagram,
+19 tables covering course content, learner progress, lesson history, XP, achievements and leagues. The ER diagram,
 the rules the database enforces and the design decisions are in [docs/DATABASE.md](docs/DATABASE.md).
 
 ## The logged-in learner
@@ -238,11 +264,12 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | POST | `/api/v1/me/hearts/refill` | Refill hearts for 350 gems |
 | GET | `/api/v1/me/achievements` | Every achievement with the learner's level and progress towards the next |
 | GET | `/api/v1/me/xp-history` | XP per day for the last 7 days (`?days=` up to 31), for the profile chart |
+| GET | `/api/v1/leaderboard` | This week's league: standings, zones, time left, last week's result |
 | POST | `/api/v1/sessions` | Start the active node's next lesson, or practice a finished node |
 | GET | `/api/v1/sessions/current` | The session in progress (the lesson page plays it) |
 | GET | `/api/v1/sessions/{session_id}` | One session with its exercises, without solutions |
 | POST | `/api/v1/sessions/{session_id}/answers` | Grade one answer; wrong answers cost a heart in lessons |
-| POST | `/api/v1/sessions/{session_id}/complete` | Finish: XP, streak, path progress (or a heart, for practice), new achievement levels |
+| POST | `/api/v1/sessions/{session_id}/complete` | Finish: XP, streak, path progress (or a heart, for practice), new achievement levels, this week's league |
 | POST | `/api/v1/sessions/{session_id}/quit` | Leave a session early |
 
 Every request and response, with real examples and every error code, is documented in

@@ -1,6 +1,6 @@
 # Database design
 
-SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has **16 tables** in four groups:
+SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has **19 tables** in five groups:
 
 | Group | Tables | Changes at runtime? |
 | --- | --- | --- |
@@ -8,6 +8,7 @@ SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has
 | Learner | `users`, `user_settings`, `user_skill_progress` | Yes |
 | Activity history | `lesson_sessions`, `session_answers`, `xp_events` | Append-only; cleared only when the learner starts over |
 | Achievements | `achievements`, `achievement_tiers` (seeded), `user_achievements` | Unlocks only |
+| Leagues | `leagues` (seeded), `league_memberships`, `rivals` | A row per learner per week; rivals' simulation clock |
 
 The guiding rule: **store what happened, derive everything else when it is read.** Locked nodes, live hearts,
 today's XP, the weekly leaderboard and the streak calendar are all computed from the rows below, so no background
@@ -37,6 +38,9 @@ erDiagram
     achievements ||--|{ achievement_tiers : "has levels"
     users ||--o{ user_achievements : unlocks
     achievement_tiers ||--o{ user_achievements : "unlocked as"
+    users ||--o{ league_memberships : "competes in"
+    leagues ||--o{ league_memberships : "for a week"
+    users ||--o| rivals : "is a"
 
     courses {
         int id PK
@@ -166,6 +170,26 @@ erDiagram
         int tier PK, FK
         datetime unlocked_at
     }
+    leagues {
+        int id PK
+        int position UK "1 Bronze ... 10 Diamond"
+        string name UK
+        int promotion_count "top N move up"
+        int demotion_count "bottom N move down"
+    }
+    league_memberships {
+        int user_id PK, FK
+        date week_start PK "the Monday"
+        int league_id FK
+        datetime joined_at
+        int final_rank "set when the week is over"
+    }
+    rivals {
+        int user_id PK, FK
+        int daily_xp "XP on a day they practise"
+        int active_days "1 to 7 a week"
+        datetime simulated_until "XP written up to here"
+    }
 ```
 
 ## Rules the database enforces
@@ -185,6 +209,8 @@ Each one has a test in `backend/tests/test_constraints.py`.
 | `lesson_sessions` | `finished_at` is set exactly when the session is no longer in progress | CHECK |
 | `xp_events` | Every event awards a positive amount | CHECK |
 | `user_achievements` | A learner can only unlock a tier that exists | Composite FOREIGN KEY → `achievement_tiers` |
+| `league_memberships` | One league per learner per week; a final rank is 1 or more | PRIMARY KEY (user, week), CHECK |
+| `leagues`, `rivals` | Zone sizes never negative; a rival practises on 1 to 7 days a week and earns some XP | CHECK |
 
 SQLite ignores foreign keys unless they are switched on for each connection; `backend/app/core/db.py` does that.
 
@@ -194,10 +220,11 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | --- | --- | --- |
 | A course, unit, skill, lesson or exercise | Everything beneath it is deleted (`CASCADE`) | Content only makes sense inside its parent |
 | Content that a learner has already answered | Refused (`RESTRICT` from `lesson_sessions`, `session_answers`) | History must never disappear silently |
-| A learner | Their settings, progress, sessions, answers, XP and unlocks go too (`CASCADE`) | Nothing of theirs is useful without them |
+| A learner | Their settings, progress, sessions, answers, XP, unlocks and league weeks go too (`CASCADE`) | Nothing of theirs is useful without them |
+| A league someone has competed in | Refused (`RESTRICT` from `league_memberships`) | Past results must keep their league |
 | A course someone is studying | Their `active_course_id` becomes NULL (`SET NULL`) | The learner stays |
 | A lesson session | Its XP stays, with `session_id` set to NULL (`SET NULL`) | XP already earned is kept |
-| A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events and unlocks are deleted; the `users` row is reset and marked `is_guest`, settings kept | They start over as a new visitor, and there is one built-in learner |
+| A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events, unlocks and league weeks are deleted; the `users` row is reset and marked `is_guest`, settings kept | They start over as a new visitor, and there is one built-in learner |
 
 ## How the six exercise types are stored
 
@@ -227,7 +254,9 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
 | Today's XP, daily goal met | Sum of `xp_events.amount` for today's `local_date` |
 | The profile's "XP this week" chart | Sum of `xp_events.amount` per `local_date` over the last 7 days |
 | Progress towards an achievement's next level | `users.longest_streak` (Wildfire), `users.total_xp` (Sage), completed `lesson_sessions` (Scholar), those with `mistakes = 0` (Sharpshooter) |
-| Weekly leaderboard | Sum of `xp_events.amount` per user for this week's dates |
+| Weekly standings | `league_memberships` for the week and league, each member's `xp_events.amount` summed over that week's `local_date`s |
+| This week's league before a lesson joins it | The last finished week's `final_rank` and the league's zone sizes: up, down or the same league |
+| Top 3 finishes | `league_memberships` with `final_rank` 1 to 3 |
 | Streak calendar | Distinct `xp_events.local_date` values |
 | Lesson accuracy | `session_answers` of the session |
 
@@ -246,8 +275,16 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
   levels that session reached. Progress towards the next level is always read live.
 - **Path progress is a counter, not per-lesson rows.** Lessons inside a skill are played in order, so
   `lessons_completed` says exactly which ones are done.
-- **No league tables.** The demo has one league: the leaderboard is this week's XP, ranked. Shop items are fixed
-  prices in code.
+- **Leagues store only what a week can't recompute later.** Standings are always summed from `xp_events`;
+  `league_memberships` records who competed in which league each week, and the final rank once the week is
+  over, because the next week's league and "top 3 finishes" depend on it. Weeks are ranked lazily, the first
+  time the leaderboard is read or joined after they end.
+- **Rivals are learners, simulated lazily.** The 29 rivals are ordinary `users` rows, so their XP, standings and
+  totals use exactly the same tables and queries as the learner's. Their extra `rivals` row holds the knobs
+  (`daily_xp`, `active_days`) and `simulated_until`: when the leaderboard is read, each rival's sessions since
+  then are written as `xp_events`. A rival's day comes from a random generator seeded with their id and the
+  date, so it is the same whenever it is worked out, and running it twice writes nothing twice.
+- **Fixed prices.** Shop items are fixed prices in code.
 - **Named constraints.** A naming convention (`backend/app/models/base.py`) gives every constraint and index a
   predictable name, so later migrations can refer to them.
 
@@ -260,9 +297,11 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | --- | --- |
 | Courses | 39 courses taught in English, in duolingo.com's order; only Spanish is available |
 | Spanish content | 3 units, each with 5 path nodes: two lesson nodes, a treasure chest, a lesson node, and a unit review (15 nodes). Lesson nodes have 2 lessons and reviews 1 (21 lessons). Unit 1 is playable: each of its 7 lessons has one exercise of every type (42 exercises). Units 2 and 3 have no exercises yet, so their lessons show "coming soon". Defined as data in `backend/app/seed/spanish.py`. |
+| Leagues | The ten leagues, Bronze to Diamond; the top 7 move up and the bottom 5 down |
+| Rivals | 29 learners studying Spanish, with how much and how often each practises, from a few keen ones to occasional ones (`data.RIVALS`). Their XP is simulated from the Monday of the week the database is seeded. |
 | Achievements | Wildfire (longest streak: 3, 7, 14 ... 365 days) and Sage (total XP: 100, 250, 500 ... 30,000), with duolingo.com's 10 levels each; Scholar (lessons: 5, 10, 25, 50) and Sharpshooter (lessons without a mistake: 3, 10, 25, 50), 4 levels each. Defined in `backend/app/seed/data.py`; levels added there reach existing databases on the next start. |
 | The built-in learner | `alex`, studying Spanish with a 20 XP daily goal and 500 gems |
-| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. That history reaches level 1 of Wildfire and Sharpshooter: on every start the seed stores any level the learner's progress already reaches. Finishing "Get started" clears it all. |
+| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. That history reaches level 1 of Wildfire and Sharpshooter: on every start the seed stores any level the learner's progress already reaches. They are also already in this week's Bronze League with the rivals. Finishing "Get started" clears it all. |
 
 ## Migrations
 
@@ -273,6 +312,7 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | `0003` | `review` path nodes (the trophy that ends each unit): widens the `skills.kind` CHECK |
 | `0004` | `listen` exercises ("Tap what you hear"): widens the `exercises.type` CHECK |
 | `0005` | `users.is_guest`: set when "Get started" starts the learner over, so the profile page asks them to create a profile; existing learners keep theirs (`false`) |
+| `0006` | `leagues`, `league_memberships` and `rivals` |
 
 Migrations run automatically when the API starts. On SQLite, Alembic changes a table by rebuilding it: copy,
 drop the original, rename. With foreign keys on, SQLite would treat that drop as deleting every row and cascade

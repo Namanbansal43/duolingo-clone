@@ -25,6 +25,7 @@ examples show a learner partway through Unit 1.
 | POST | [`/api/v1/me/hearts/refill`](#post-apiv1meheartsrefill) | Refill hearts for 350 gems |
 | GET | [`/api/v1/me/achievements`](#get-apiv1meachievements) | Every achievement with the learner's level and progress |
 | GET | [`/api/v1/me/xp-history`](#get-apiv1mexp-history) | XP per day for the last few days (the profile's chart) |
+| GET | [`/api/v1/leaderboard`](#get-apiv1leaderboard) | This week's league, ranked |
 | POST | [`/api/v1/sessions`](#post-apiv1sessions) | Start a lesson, or practice a finished node |
 | GET | [`/api/v1/sessions/current`](#get-apiv1sessionscurrent) | The session in progress |
 | GET | [`/api/v1/sessions/{session_id}`](#get-apiv1sessionssession_id) | One session |
@@ -247,6 +248,7 @@ Shuffled lists keep the same order for the whole session, so a reload doesn't mo
 | `hearts` | [Hearts](#hearts) | After this session (practice gives one back) |
 | `node` | object | `{"id", "lessons_completed", "lessons_total", "completed"}`: the path node's progress |
 | `achievements` | array of [Achievement](#achievement) | Achievements that went up a level with this session, at their new level. Usually empty. |
+| `leaderboard_unlocked` | boolean | `true` when this was the learner's 10th session: leaderboards opened and they entered the Bronze League |
 
 ### Achievement
 
@@ -263,6 +265,16 @@ never lost (every statistic measured only grows).
 | `goal` | integer | The next level's threshold; the last level's once every level is reached |
 | `description` | string | The goal in words, e.g. `Reach a 7 day streak` |
 | `unlocked_at` | datetime or null | When the current level was reached; null at level 0 |
+
+### League
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | integer | League id |
+| `position` | integer | 1 for Bronze up to 10 for Diamond |
+| `name` | string | `Bronze`, `Silver`, `Gold`, `Sapphire`, `Ruby`, `Emerald`, `Amethyst`, `Pearl`, `Obsidian`, `Diamond`; shown as "Bronze League" |
+| `promotion_count` | integer | The top N move up a league when the week ends (7; 0 in Diamond) |
+| `demotion_count` | integer | The bottom N move down a league (5; 0 in Bronze) |
 
 ### Daily XP
 
@@ -496,7 +508,7 @@ resets that learner:
 
 | What | Becomes |
 | --- | --- |
-| Lesson sessions and their answers, XP events, path progress, unlocked achievements | Deleted |
+| Lesson sessions and their answers, XP events, path progress, unlocked achievements, league weeks | Deleted |
 | `total_xp`, the streak (current and longest), streak freezes | 0 |
 | Hearts | Full |
 | Gems | 500, a new learner's balance |
@@ -722,6 +734,91 @@ grouped by the learner's local date.
 
 ```bash
 curl "http://localhost:8000/api/v1/me/xp-history?days=7"
+```
+
+---
+
+## GET /api/v1/leaderboard
+
+This week's league: everyone in it ranked by XP earned this week, the zones that move up and down, when the
+week ends, and how the learner's last finished week went. Reading it first brings the leagues up to now: the
+rivals' XP is written up to this moment, and any league week that has ended gets its final ranks. That makes
+this a `GET` that writes, deliberately: like hearts and the streak, nothing runs on a timer.
+
+A league week runs Monday to Sunday in the learner's time zone. Leaderboards open after 10 finished lessons;
+after that, finishing a lesson joins the week's league (the [completion](#completion) says when that unlocked
+leaderboards), and the seeded rivals join with the learner.
+
+**Request:** no parameters, no body.
+
+**Response `200 OK`**
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `unlocked` | boolean | Leaderboards are open for this learner |
+| `lessons_to_unlock` | integer | Lessons left before they open; `0` once open |
+| `leagues` | array of [League](#league) | All ten, Bronze first (for the row of badges) |
+| `league` | [League](#league) or null | This week's league: the one joined, or the one the next finished lesson joins (after last week's result). Null while locked. |
+| `joined` | boolean | A lesson has been finished this week, so the learner is in the standings |
+| `week_start` | date | The Monday this league week started on |
+| `week_ends_at` | datetime | The next Monday at midnight in the learner's time zone, in UTC |
+| `standings` | array | `{"rank", "user_id", "display_name", "xp", "is_me"}` for all 30 members by XP this week (ties: who joined first). Empty until `joined`. |
+| `last_result` | object or null | The learner's last finished week: `{"week_start", "league", "rank", "outcome", "next_league"}`, with `outcome` one of `promoted`, `stayed`, `demoted` |
+| `top_three_finishes` | integer | Finished weeks ranked 1st to 3rd (shown on the profile) |
+
+The seeded learner on Thursday 2026-10-08 at 12:00 UTC: 30 XP from the demo history, 11th of 30. The rivals have
+been practising since Monday. (`leagues` and `standings` are cut short here; they hold 10 and 30 entries.)
+
+```json
+{
+  "unlocked": true,
+  "lessons_to_unlock": 0,
+  "leagues": [
+    { "id": 1, "position": 1, "name": "Bronze", "promotion_count": 7, "demotion_count": 0 },
+    { "id": 2, "position": 2, "name": "Silver", "promotion_count": 7, "demotion_count": 5 }
+  ],
+  "league": { "id": 1, "position": 1, "name": "Bronze", "promotion_count": 7, "demotion_count": 0 },
+  "joined": true,
+  "week_start": "2026-10-05",
+  "week_ends_at": "2026-10-12T00:00:00Z",
+  "standings": [
+    { "rank": 1, "user_id": 1, "display_name": "Sofía", "xp": 195, "is_me": false },
+    { "rank": 2, "user_id": 3, "display_name": "Amara", "xp": 115, "is_me": false },
+    { "rank": 11, "user_id": 30, "display_name": "Alex", "xp": 30, "is_me": true },
+    { "rank": 30, "user_id": 29, "display_name": "Ana", "xp": 0, "is_me": false }
+  ],
+  "last_result": null,
+  "top_three_finishes": 0
+}
+```
+
+The next Monday, before any lesson: last week is ranked (11th became 15th as rivals kept practising until
+Sunday), the learner stays in Bronze, and the new week waits for a lesson. Showing the fields that changed:
+
+```json
+{
+  "league": { "id": 1, "position": 1, "name": "Bronze", "promotion_count": 7, "demotion_count": 0 },
+  "joined": false,
+  "week_start": "2026-10-12",
+  "week_ends_at": "2026-10-19T00:00:00Z",
+  "standings": [],
+  "last_result": {
+    "week_start": "2026-10-05",
+    "league": { "id": 1, "position": 1, "name": "Bronze", "promotion_count": 7, "demotion_count": 0 },
+    "rank": 15,
+    "outcome": "stayed",
+    "next_league": { "id": 1, "position": 1, "name": "Bronze", "promotion_count": 7, "demotion_count": 0 }
+  }
+}
+```
+
+A learner who has not unlocked leaderboards yet gets `"unlocked": false`, `"lessons_to_unlock": 10` (or fewer),
+`"league": null` and no standings.
+
+**Errors:** `503 learner_missing`.
+
+```bash
+curl http://localhost:8000/api/v1/leaderboard
 ```
 
 ---
@@ -1034,7 +1131,8 @@ Finishes a session once every exercise is answered (listening exercises may be s
 now"). It writes an XP event (10 XP for a lesson, 5 for practice), extends the streak if this is the first
 finished session of the learner's day, and then either moves the path node on (a lesson) or gives a heart back
 (practice). The node is completed with its last lesson, which unlocks the next one. Finally it stores any
-achievement levels the learner has now reached and lists them, so the result screens can announce them.
+achievement levels the learner has now reached and lists them, so the result screens can announce them, and
+joins this week's league if leaderboards are open (the 10th session opens them: `leaderboard_unlocked`).
 
 **Request:** no body.
 
@@ -1066,7 +1164,8 @@ later, with one mistake:
     "lessons_total": 2,
     "completed": true
   },
-  "achievements": []
+  "achievements": [],
+  "leaderboard_unlocked": false
 }
 ```
 
