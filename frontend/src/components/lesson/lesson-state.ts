@@ -1,4 +1,4 @@
-import type { AnswerResult, Completion, Hearts, LessonSession } from "@/lib/api/types";
+import type { Achievement, AnswerResult, Completion, Hearts, LessonSession } from "@/lib/api/types";
 
 /**
  * The lesson player as a state machine. The server grades answers and keeps score; this only decides
@@ -13,8 +13,16 @@ export type Phase =
   | "review" // "Let's review the exercise you missed!", before the mistakes come round again
   | "no-hearts" // out of hearts, in a lesson
   | "finishing" // every exercise answered; asking the server to complete the session
-  | "complete" // the lesson complete screen
-  | "streak"; // the streak celebration that follows when today's first lesson extends it
+  | "ending"; // the result screens, one after another (see EndScreen)
+
+/**
+ * The screens after a finished lesson: always "Lesson complete!", then the streak celebration if today's
+ * first lesson extended it, then one for each achievement that went up a level.
+ */
+export type EndScreen =
+  | { kind: "complete" }
+  | { kind: "streak" }
+  | { kind: "achievement"; achievement: Achievement };
 
 export type Feedback = {
   correct: boolean;
@@ -35,6 +43,7 @@ export type LessonState = {
   phase: Phase;
   feedback: Feedback | null;
   result: Completion | null;
+  endings: EndScreen[]; // result screens still to show; the first is on screen
 };
 
 export type LessonAction =
@@ -46,7 +55,7 @@ export type LessonAction =
   | { type: "skip-listening" }
   | { type: "refilled"; hearts: Hearts }
   | { type: "finished"; result: Completion }
-  | { type: "show-streak" };
+  | { type: "next-screen" };
 
 const PRAISE = ["Good job!", "Great job!", "Awesome!", "Nicely done!", "Amazing!", "Excellent!"];
 
@@ -67,6 +76,7 @@ export function initialState(session: LessonSession): LessonState {
     phase: queue.length === 0 ? "finishing" : outOfHearts ? "no-hearts" : "answer",
     feedback: null,
     result: null,
+    endings: [],
   };
 }
 
@@ -102,10 +112,18 @@ export function lessonReducer(state: LessonState, action: LessonAction): LessonS
     case "refilled":
       return { ...state, hearts: action.hearts, phase: state.queue.length ? "answer" : "finishing" };
     case "finished":
-      return { ...state, phase: "complete", result: action.result };
-    case "show-streak":
-      return { ...state, phase: "streak" };
+      return { ...state, phase: "ending", result: action.result, endings: endScreens(action.result) };
+    case "next-screen":
+      return { ...state, endings: state.endings.slice(1) };
   }
+}
+
+function endScreens(result: Completion): EndScreen[] {
+  return [
+    { kind: "complete" },
+    ...(result.streak.extended ? [{ kind: "streak" } as const] : []),
+    ...result.achievements.map((achievement) => ({ kind: "achievement", achievement }) as const),
+  ];
 }
 
 /** The current exercise is settled: right ones leave the queue, wrong ones go to the back. */

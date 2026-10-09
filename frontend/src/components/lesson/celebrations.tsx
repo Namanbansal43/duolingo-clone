@@ -2,10 +2,11 @@ import Image from "next/image";
 import { Target, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { AchievementBadge } from "@/components/achievements/achievement-badge";
 import { AnimatedIllustration } from "@/components/ui/animated-illustration";
 import { Button } from "@/components/ui/button";
 import { SpeechBubble } from "@/components/ui/speech-bubble";
-import type { Completion } from "@/lib/api/types";
+import type { Achievement, Completion } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
 import { comingSoon } from "@/lib/coming-soon";
 
@@ -155,6 +156,29 @@ export function StreakExtended({ length, onContinue }: { length: number; onConti
           Practice each day so your streak won&rsquo;t reset!
         </p>
       </div>
+    </Screen>
+  );
+}
+
+/** An achievement went up a level: its badge at the new level, and what the next one needs. */
+export function AchievementUnlocked({ achievement, onContinue }: { achievement: Achievement; onContinue: () => void }) {
+  const last = achievement.level === achievement.max_level;
+  return (
+    <Screen
+      footer={
+        <Button variant="secondary" size="xl" onClick={onContinue} autoFocus className="ml-auto w-full sm:w-auto sm:min-w-[150px]">
+          Continue
+        </Button>
+      }
+    >
+      <AchievementBadge achievement={achievement} className="w-[150px] animate-pop-in" />
+      <h1 className="mt-8 text-[32px] leading-10 font-bold text-duo-gold">Achievement unlocked!</h1>
+      <p className="mt-3 text-[21px] font-bold text-ink">
+        {achievement.title}, level {achievement.level}
+      </p>
+      <p className="mt-1 text-[17px] leading-6 text-ink-soft">
+        {last ? "That's the top level. Amazing!" : `Next level: ${achievement.description}`}
+      </p>
     </Screen>
   );
 }

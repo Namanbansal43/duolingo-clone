@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { ComingSoonLink } from "@/components/landing/coming-soon-link";
 import type { Me } from "@/lib/api/types";
+import { cn } from "@/lib/cn";
 
 import { StatsBar } from "./stats-bar";
 
@@ -11,13 +12,12 @@ const LEADERBOARD_UNLOCK_LESSONS = 10;
 
 const FOOTER_LINKS = ["About", "Blog", "Store", "Efficacy", "Careers", "Investors", "Terms", "Privacy"];
 
-/** The right-hand column on wide screens: stats, leaderboard and quest cards, footer links. */
-export function RightRail({ me }: { me: Me }) {
+/** The right-hand column on wide screens: stats, the page's cards, footer links. */
+export function RightRail({ me, children }: { me: Me; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-6">
       <StatsBar me={me} />
-      <LeagueCard lessonsCompleted={me.lessons_completed} />
-      <DailyQuestCard xp={me.xp_today} goal={me.daily_goal_xp} />
+      {children}
       <ul className="flex flex-wrap justify-center gap-x-5 gap-y-4 px-2.5">
         {FOOTER_LINKS.map((label) => (
           <li key={label}>
@@ -34,14 +34,14 @@ export function RightRail({ me }: { me: Me }) {
   );
 }
 
-function Card({ children }: { children: ReactNode }) {
-  return <section className="rounded-2xl border-2 border-line p-[18px]">{children}</section>;
+export function RailCard({ children, className }: { children: ReactNode; className?: string }) {
+  return <section className={cn("rounded-2xl border-2 border-line p-[18px]", className)}>{children}</section>;
 }
 
-function LeagueCard({ lessonsCompleted }: { lessonsCompleted: number }) {
+export function LeagueCard({ lessonsCompleted }: { lessonsCompleted: number }) {
   const remaining = Math.max(0, LEADERBOARD_UNLOCK_LESSONS - lessonsCompleted);
   return (
-    <Card>
+    <RailCard>
       <h2 className="text-[19px] leading-7 font-bold text-ink">
         {remaining > 0 ? "Unlock Leaderboards!" : "Leaderboards unlocked!"}
       </h2>
@@ -53,14 +53,14 @@ function LeagueCard({ lessonsCompleted }: { lessonsCompleted: number }) {
             : "Weekly leagues are coming soon."}
         </p>
       </div>
-    </Card>
+    </RailCard>
   );
 }
 
-function DailyQuestCard({ xp, goal }: { xp: number; goal: number }) {
+export function DailyQuestCard({ xp, goal }: { xp: number; goal: number }) {
   const done = Math.min(xp, goal);
   return (
-    <Card>
+    <RailCard>
       <div className="flex items-center justify-between">
         <h2 className="text-[19px] leading-7 font-bold text-ink">Daily Quests</h2>
         <ComingSoonLink
@@ -94,6 +94,6 @@ function DailyQuestCard({ xp, goal }: { xp: number; goal: number }) {
           </div>
         </div>
       </div>
-    </Card>
+    </RailCard>
   );
 }

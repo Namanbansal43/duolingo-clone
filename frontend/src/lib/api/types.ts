@@ -45,6 +45,28 @@ export type Me = {
   streak: Streak;
 };
 
+/** An achievement with the learner's level and progress towards the next one. */
+export type Achievement = {
+  key: string;
+  title: string;
+  /** 0 until the first level is reached. */
+  level: number;
+  max_level: number;
+  /** The learner's statistic: longest streak, total XP, lessons or perfect lessons. */
+  value: number;
+  /** What the next level needs; the last level's threshold once every level is reached. */
+  goal: number;
+  /** The goal in words, e.g. "Reach a 7 day streak". */
+  description: string;
+  unlocked_at: string | null;
+};
+
+/** XP earned on one calendar day (YYYY-MM-DD, the learner's time zone). */
+export type DailyXp = {
+  day: string;
+  xp: number;
+};
+
 export type NodeState = "completed" | "active" | "locked";
 
 export type PathNode = {
@@ -150,6 +172,8 @@ export type Completion = {
   streak: { length: number; longest: number; extended: boolean };
   hearts: Hearts;
   node: { id: number; lessons_completed: number; lessons_total: number; completed: boolean };
+  /** Achievements that went up a level, at their new level. */
+  achievements: Achievement[];
 };
 
 export type ApiErrorBody = {

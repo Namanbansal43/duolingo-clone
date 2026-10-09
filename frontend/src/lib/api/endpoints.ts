@@ -1,11 +1,13 @@
 import { apiFetch } from "./client";
 import type {
+  Achievement,
   AnswerBody,
   AnswerResult,
   CatalogCourse,
   ChestReward,
   Completion,
   CoursePath,
+  DailyXp,
   LessonSession,
   Me,
   MeUpdate,
@@ -25,6 +27,11 @@ export const updateMe = (changes: MeUpdate) =>
 export const completeOnboarding = (choices: Onboarding) => apiFetch<Me>("/me/onboarding", post(choices));
 
 export const refillHearts = () => apiFetch<Me>("/me/hearts/refill", post());
+
+export const getAchievements = () => apiFetch<Achievement[]>("/me/achievements");
+
+/** XP per day for the last `days` days, ending today; oldest first. */
+export const getXpHistory = (days = 7) => apiFetch<DailyXp[]>(`/me/xp-history?days=${days}`);
 
 export const getCourses = () => apiFetch<CatalogCourse[]>("/courses");
 

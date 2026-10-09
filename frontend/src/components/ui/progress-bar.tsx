@@ -1,11 +1,13 @@
 import { cn } from "@/lib/cn";
 
+const TONES = { green: "bg-duo-green", orange: "bg-duo-orange", gold: "bg-duo-gold" } as const;
+
 type ProgressBarProps = {
   /** 0 to 1. */
   value: number;
   label: string;
-  /** Orange while a lesson is on a run of right answers. */
-  tone?: "green" | "orange";
+  /** Orange while a lesson is on a run of right answers; gold for achievements. */
+  tone?: keyof typeof TONES;
   className?: string;
 };
 
@@ -24,7 +26,7 @@ export function ProgressBar({ value, label, tone = "green", className }: Progres
       <div
         className={cn(
           "relative h-full rounded-full transition-[width,background-color] duration-500 ease-out",
-          tone === "orange" ? "bg-duo-orange" : "bg-duo-green",
+          TONES[tone],
         )}
         style={{ width: `${percent}%` }}
       >

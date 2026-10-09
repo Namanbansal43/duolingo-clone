@@ -21,7 +21,7 @@ import type { AnswerBody, LessonSession } from "@/lib/api/types";
 import { useApi } from "@/lib/api/use-api";
 import { playSound } from "@/lib/sounds";
 
-import { LessonComplete, ReviewIntro, StreakExtended } from "./celebrations";
+import { AchievementUnlocked, LessonComplete, ReviewIntro, StreakExtended } from "./celebrations";
 import { ExerciseView } from "./exercises/exercise-view";
 import { CheckFooter, FeedbackBar } from "./lesson-footer";
 import { LessonHeader } from "./lesson-header";
@@ -169,14 +169,19 @@ function Lesson({ session, onReload }: { session: LessonSession; onReload: () =>
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (phase === "complete" && state.result) {
-    const extended = state.result.streak.extended;
-    return <LessonComplete result={state.result} onContinue={() => (extended ? dispatch({ type: "show-streak" }) : leave())} />;
+  if (phase === "ending" && state.result) {
+    const [screen, ...later] = state.endings;
+    const onContinue = () => (later.length > 0 ? dispatch({ type: "next-screen" }) : leave());
+    switch (screen?.kind) {
+      case "complete":
+        return <LessonComplete result={state.result} onContinue={onContinue} />;
+      case "streak":
+        return <StreakExtended length={state.result.streak.length} onContinue={onContinue} />;
+      case "achievement":
+        return <AchievementUnlocked key={screen.achievement.key} achievement={screen.achievement} onContinue={onContinue} />;
+    }
   }
-  if (phase === "streak" && state.result) {
-    return <StreakExtended length={state.result.streak.length} onContinue={leave} />;
-  }
-  if (phase === "finishing") return <LessonLoading />;
+  if (phase === "finishing" || phase === "ending") return <LessonLoading />;
 
   return (
     <div className="flex min-h-svh flex-col">
