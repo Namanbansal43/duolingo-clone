@@ -53,6 +53,24 @@ def test_finishing_a_session_announces_new_levels_once(client: TestClient, db: S
     assert play_lesson(client, db, start(client, say_hello["id"]))["achievements"] == []
 
 
+def test_daily_practice_grows_streak_and_levels(client: TestClient, db: Session, clock: FixedClock) -> None:
+    say_hello = nodes(client)[0]["id"]
+    days = []
+    for _ in range(4):  # today and the 3 days after: the seeded 3-day streak reaches 7
+        done = play_lesson(client, db, start(client, say_hello))
+        days.append((done["streak"]["length"], [(a["key"], a["level"]) for a in done["achievements"]]))
+        clock.advance(timedelta(days=1))
+
+    assert days == [(4, []), (5, [("scholar", 1)]), (6, []), (7, [("wildfire", 2)])]
+    wildfire = achievements(client)["wildfire"]
+    assert (wildfire["level"], wildfire["unlocked_at"]) == (2, "2026-10-11T12:00:00Z")  # stored when reached
+
+    clock.advance(timedelta(days=1))  # a day missed: the streak starts again, the record and levels stay
+    done = play_lesson(client, db, start(client, say_hello))
+    assert done["streak"] == {"length": 1, "longest": 7, "extended": True}
+    assert progress(achievements(client)["wildfire"]) == (2, 7, 14, "Reach a 14 day streak")
+
+
 def test_a_mistake_spoils_a_perfect_lesson(client: TestClient, db: Session) -> None:
     played = start_active(client)
     answer(client, played, exercise_of(played, "type_answer")["id"], text="No idea")
