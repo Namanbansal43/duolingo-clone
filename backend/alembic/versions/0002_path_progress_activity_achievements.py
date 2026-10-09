@@ -1,6 +1,6 @@
 """Path content, learner progress, activity history and achievements.
 
-Adds the 14 remaining tables of the schema (see docs/DATABASE.md) and users.streak_freezes.
+Adds the 14 remaining tables of the schema (see DATABASE.md) and users.streak_freezes.
 
 Revision ID: 0002
 Revises: 0001

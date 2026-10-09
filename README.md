@@ -251,9 +251,8 @@ setup and no backend URL in client code.
 duolingo-clone/
 ├── README.md                    ← you are here
 ├── DOCUMENTATION.md             ← the step-by-step build log: every page, rule and decision in detail
-├── docs/
-│   ├── DATABASE.md              ← schema reference: ER diagram, constraints, design decisions, migrations
-│   └── API.md                   ← every endpoint with real request/response examples and error codes
+├── DATABASE.md                  ← schema reference: ER diagram, constraints, design decisions, migrations
+├── API.md                       ← every endpoint with real request/response examples and error codes
 │
 ├── backend/                     FastAPI + SQLAlchemy + SQLite
 │   ├── app/
@@ -355,7 +354,7 @@ erDiagram
     users ||--o| rivals : "simulated as"
 ```
 
-**Key decisions** (each explained in [docs/DATABASE.md](docs/DATABASE.md)):
+**Key decisions** (each explained in [DATABASE.md](DATABASE.md)):
 
 - **Normalised content.** Each exercise type's data lives in proper tables (options, accepted answers) rather
   than a JSON blob, so the database can check it.
@@ -375,7 +374,7 @@ erDiagram
 
 REST under `/api/v1`, JSON in and out. Every error has the same shape:
 `{"error": {"code": "out_of_hearts", "message": "...", "details": ...}}`. The full reference, with real examples
-for every endpoint and every error code, is in [docs/API.md](docs/API.md), and the running server serves it
+for every endpoint and every error code, is in [API.md](API.md), and the running server serves it
 interactively at `/docs`.
 
 | Method | Path | Purpose |
@@ -502,5 +501,5 @@ Step-by-step setup instructions are in [DOCUMENTATION.md](DOCUMENTATION.md#deplo
 | Document | What's in it |
 | --- | --- |
 | [DOCUMENTATION.md](DOCUMENTATION.md) | The step-by-step build log: each page as it was built and measured against duolingo.com, every rule, decision and trade-off, troubleshooting and deployment steps |
-| [docs/DATABASE.md](docs/DATABASE.md) | The full ER diagram, every constraint, delete behaviour, how each exercise type is stored, what is derived rather than stored, seed data and migrations |
-| [docs/API.md](docs/API.md) | Every endpoint with request and response examples, shared objects, conventions and the complete list of error codes |
+| [DATABASE.md](DATABASE.md) | The full ER diagram, every constraint, delete behaviour, how each exercise type is stored, what is derived rather than stored, seed data and migrations |
+| [API.md](API.md) | Every endpoint with request and response examples, shared objects, conventions and the complete list of error codes |

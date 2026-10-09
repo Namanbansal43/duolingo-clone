@@ -1,4 +1,4 @@
-/** Response and request shapes of the backend API. Field meanings are documented in docs/API.md. */
+/** Response and request shapes of the backend API. Field meanings are documented in API.md. */
 
 export type DailyGoalXp = 10 | 20 | 30 | 50;
 

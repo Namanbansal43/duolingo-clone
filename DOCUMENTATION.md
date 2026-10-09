@@ -3,7 +3,7 @@
 The full record of how this project was built: every page and how it was measured against duolingo.com, every
 game rule, and the reasoning behind each decision, written up step by step as the work went along. For an
 overview of the project, start with the [README](README.md); the database and API references are in
-[docs/DATABASE.md](docs/DATABASE.md) and [docs/API.md](docs/API.md).
+[DATABASE.md](DATABASE.md) and [API.md](API.md).
 
 | Part | Stack | Status |
 | --- | --- | --- |
@@ -344,7 +344,7 @@ content changes (the lesson player step trimmed each lesson node to 2 lessons), 
 
 20 tables covering course content, learner progress and preferences, lesson history, XP, achievements, leagues
 and the demo clock. The ER diagram,
-the rules the database enforces and the design decisions are in [docs/DATABASE.md](docs/DATABASE.md).
+the rules the database enforces and the design decisions are in [DATABASE.md](DATABASE.md).
 
 ## The logged-in learner
 
@@ -397,7 +397,7 @@ visitors in "Get started" at the same time share the guest.
 | POST | `/api/v1/demo/reset` | Everything back to the seeded state and real time, the guest removed; preferences kept |
 
 Every request and response, with real examples and every error code, is documented in
-[docs/API.md](docs/API.md). With the backend running, `/docs` serves the same reference interactively.
+[API.md](API.md). With the backend running, `/docs` serves the same reference interactively.
 Errors always have the shape `{"error": {"code": "...", "message": "...", "details": ...}}`.
 
 ## Brand assets

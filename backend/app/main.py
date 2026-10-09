@@ -19,7 +19,7 @@ There is no login: the brief assumes a logged-in user, so every request acts as 
 
 Every error response has the shape `{"error": {"code", "message", "details"?}}`.
 Times are ISO 8601 in UTC, for example `2026-10-08T12:25:00Z`.
-A Markdown version of this reference is in `docs/API.md`.
+A Markdown version of this reference is in `API.md`.
 """
 
 
