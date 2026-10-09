@@ -7,7 +7,17 @@ from sqlalchemy.orm import Session
 
 from app.core.config import BACKEND_DIR, Settings
 from app.core.db import create_db_engine, reset_database, run_migrations
-from app.models import Achievement, AchievementTier, Base, Course, User, UserSettings
+from app.models import (
+    Achievement,
+    AchievementTier,
+    Base,
+    Course,
+    League,
+    LeagueMembership,
+    Rival,
+    User,
+    UserSettings,
+)
 from app.seed import data, seed_database
 from tests.conftest import FixedClock
 
@@ -30,7 +40,7 @@ def test_migrations_roll_back_and_forward(settings: Settings) -> None:
     engine.dispose()
 
     assert tables == set(Base.metadata.tables)
-    assert len(tables) == 16
+    assert len(tables) == 19
 
 
 def test_upgrading_keeps_existing_learners(settings: Settings) -> None:
@@ -82,7 +92,10 @@ def test_seeding_again_adds_nothing_and_keeps_progress(
     assert count(Course) == len(data.COURSES)
     assert count(Achievement) == len(data.ACHIEVEMENTS)
     assert count(AchievementTier) == sum(len(thresholds) for *_, thresholds in data.ACHIEVEMENTS)
-    assert count(User) == count(UserSettings) == 1
+    assert count(League) == len(data.LEAGUES)
+    assert count(User) == 1 + count(Rival) == 1 + len(data.RIVALS)
+    assert count(UserSettings) == 1  # rivals have no settings page
+    assert count(LeagueMembership) == 1 + len(data.RIVALS)  # this week's league
     db.refresh(learner)
     assert learner.gems == 42
     assert learner.settings.sound_effects is False

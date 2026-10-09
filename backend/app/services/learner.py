@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.models import (
     Course,
+    LeagueMembership,
     LessonSession,
     SessionStatus,
     User,
@@ -45,11 +46,11 @@ def update_learner(db: Session, user: User, changes: MeUpdate) -> None:
 def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: datetime) -> None:
     """Finish "Get started": the learner begins as a brand-new guest (no profile yet), at the first node of
     the chosen course. There is one built-in learner, so this clears their history (lesson sessions and
-    their answers, XP, path progress, achievements) and resets their stats; preferences on the settings
-    page are kept. Nothing changes if the course can't be studied."""
+    their answers, XP, path progress, achievements, leagues) and resets their stats; preferences on the
+    settings page are kept. Nothing changes if the course can't be studied."""
     course = available_course(db, choices.active_course_id)
 
-    for model in (XpEvent, LessonSession, UserSkillProgress, UserAchievement):
+    for model in (XpEvent, LessonSession, UserSkillProgress, UserAchievement, LeagueMembership):
         db.execute(delete(model).where(model.user_id == user.id))  # answers go with their sessions
 
     user.created_at = now

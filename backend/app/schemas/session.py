@@ -129,3 +129,6 @@ class CompletionOut(BaseModel):
     achievements: list[AchievementOut] = Field(
         description="Achievements that went up a level, at their new level; usually empty."
     )
+    leaderboard_unlocked: bool = Field(
+        description="This was the learner's 10th session: they unlocked leaderboards (Bronze League)."
+    )

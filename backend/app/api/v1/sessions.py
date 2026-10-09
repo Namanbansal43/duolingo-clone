@@ -136,6 +136,7 @@ def complete_session(
             completed=done.node_completed,
         ),
         achievements=[achievement_out(progress) for progress in done.achievements],
+        leaderboard_unlocked=done.leaderboard_unlocked,
     )
 
 

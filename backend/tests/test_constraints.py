@@ -14,8 +14,11 @@ from app.models import (
     Exercise,
     ExerciseOption,
     ExerciseType,
+    League,
+    LeagueMembership,
     Lesson,
     LessonSession,
+    Rival,
     SessionAnswer,
     SessionMode,
     SessionStatus,
@@ -211,3 +214,38 @@ def test_deleting_a_learner_deletes_everything_they_own(db: Session, lesson: Les
         (model.__tablename__ for model in owned), 0
     )
     assert count(db, Exercise) == exercises_before  # content is untouched
+    assert db.scalar(select(func.count()).where(LeagueMembership.user_id == learner.id)) == 0
+
+
+# Leagues
+
+
+def test_a_learner_is_in_one_league_a_week(db: Session, learner: User) -> None:
+    (week,) = db.scalars(select(LeagueMembership.week_start).where(LeagueMembership.user_id == learner.id))
+    silver = db.scalars(select(League).where(League.name == "Silver")).one()
+    db.add(LeagueMembership(user_id=learner.id, week_start=week, league=silver, joined_at=NOW))
+
+    with pytest.raises(IntegrityError, match="UNIQUE"):
+        db.commit()
+
+
+@pytest.mark.parametrize(
+    ("model", "column", "value"),
+    [
+        (Rival, "active_days", 8),
+        (Rival, "daily_xp", 0),
+        (LeagueMembership, "final_rank", 0),
+        (League, "promotion_count", -1),
+    ],
+)
+def test_league_values_stay_in_range(db: Session, model: type[Base], column: str, value: int) -> None:
+    row = db.scalars(select(model)).first()
+    setattr(row, column, value)
+
+    with pytest.raises(IntegrityError, match="CHECK"):
+        db.commit()
+
+
+def test_a_league_with_members_cannot_be_deleted(db: Session) -> None:
+    with pytest.raises(IntegrityError, match="FOREIGN KEY"):
+        db.execute(delete(League).where(League.name == "Bronze"))

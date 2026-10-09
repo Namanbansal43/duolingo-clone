@@ -14,6 +14,7 @@ from app.models.content import (
     SkillKind,
     Unit,
 )
+from app.models.leagues import League, LeagueMembership, Rival
 from app.models.learner import DAILY_GOAL_OPTIONS, MAX_STREAK_FREEZES, User, UserSettings, UserSkillProgress
 
 __all__ = [
@@ -28,8 +29,11 @@ __all__ = [
     "Exercise",
     "ExerciseOption",
     "ExerciseType",
+    "League",
+    "LeagueMembership",
     "Lesson",
     "LessonSession",
+    "Rival",
     "SessionAnswer",
     "SessionMode",
     "SessionStatus",

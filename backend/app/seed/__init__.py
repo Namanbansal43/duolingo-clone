@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+import unicodedata
+from datetime import UTC, datetime, time, timedelta
 from typing import assert_never
 
 from sqlalchemy import select
@@ -12,8 +13,11 @@ from app.models import (
     Exercise,
     ExerciseOption,
     ExerciseType,
+    League,
+    LeagueMembership,
     Lesson,
     LessonSession,
+    Rival,
     SessionMode,
     SessionStatus,
     Skill,
@@ -26,6 +30,7 @@ from app.models import (
 )
 from app.seed import data, spanish
 from app.services.achievements import unlock_achievements
+from app.services.leagues import week_start_of
 from app.services.rules import LESSON_XP, STARTING_GEMS
 from app.services.streak import local_date
 
@@ -36,6 +41,8 @@ def seed_database(db: Session, *, default_username: str, now: datetime) -> None:
     _seed_courses(db)
     _seed_spanish_content(db)
     _seed_achievements(db)
+    _seed_leagues(db)
+    _seed_rivals(db, now)
     learner = _seed_default_learner(db, default_username, now)
     # Award the levels the learner's progress already reaches: the demo history earns the first levels
     # of Wildfire (a 3 day streak) and Sharpshooter (3 lessons without a mistake).
@@ -178,6 +185,45 @@ def _seed_achievements(db: Session) -> None:
     db.flush()
 
 
+def _seed_leagues(db: Session) -> None:
+    existing = set(db.scalars(select(League.name)))
+    for position, (name, promotion_count, demotion_count) in enumerate(data.LEAGUES, start=1):
+        if name not in existing:
+            db.add(
+                League(
+                    position=position,
+                    name=name,
+                    promotion_count=promotion_count,
+                    demotion_count=demotion_count,
+                )
+            )
+    db.flush()
+
+
+def _seed_rivals(db: Session, now: datetime) -> None:
+    """The learners in the learner's league. Their XP is simulated from the start of this league week."""
+    existing = set(db.scalars(select(User.username)))
+    course = db.scalar(select(Course).where(Course.learning_language == "es", Course.from_language == "en"))
+    week_began = datetime.combine(week_start_of(now.date()), time(), UTC)
+    for index, (name, daily_xp, active_days) in enumerate(data.RIVALS):
+        username = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+        if username in existing:
+            continue
+        rival = User(
+            username=username,
+            display_name=name,
+            created_at=now - timedelta(days=30 + 11 * index),
+            active_course=course,
+            hearts_updated_at=now,
+        )
+        db.add(rival)
+        db.flush()
+        db.add(
+            Rival(user_id=rival.id, daily_xp=daily_xp, active_days=active_days, simulated_until=week_began)
+        )
+    db.flush()
+
+
 def _seed_default_learner(db: Session, username: str, now: datetime) -> User:
     learner = db.scalar(select(User).where(User.username == username))
     if learner is None:
@@ -252,3 +298,11 @@ def _seed_demo_history(db: Session, learner: User, now: datetime) -> None:
     learner.last_streak_date = local_date(
         now - timedelta(days=min(days for days, _ in data.DEMO_HISTORY)), learner.timezone
     )
+
+    # Leaderboards normally open after 10 lessons; the demo learner is already in this week's Bronze
+    # league, with the rivals, so the leaderboard has something to show straight away.
+    bronze = db.scalar(select(League).order_by(League.position))
+    week = week_start_of(local_date(now, learner.timezone))
+    for user_id in [learner.id, *db.scalars(select(Rival.user_id))]:
+        if db.get(LeagueMembership, (user_id, week)) is None:
+            db.add(LeagueMembership(user_id=user_id, week_start=week, league=bronze, joined_at=now))

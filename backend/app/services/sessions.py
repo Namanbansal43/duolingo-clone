@@ -34,6 +34,7 @@ from app.schemas.session import AnswerIn
 from app.services.achievements import AchievementProgress, unlock_achievements
 from app.services.grading import Grade, Verdict, grade_text
 from app.services.hearts import add_hearts, live_hearts
+from app.services.leagues import join_league
 from app.services.path import NodeState, path_node
 from app.services.rules import LESSON_XP, PRACTICE_HEARTS, PRACTICE_XP
 from app.services.streak import extend_streak, local_date
@@ -60,6 +61,7 @@ class Completion:
     lessons_total: int
     node_completed: bool
     achievements: list[AchievementProgress]  # those that went up a level
+    leaderboard_unlocked: bool  # this session made the learner's 10th: they entered the Bronze League
 
 
 def start_session(
@@ -163,7 +165,7 @@ def complete_session(
     db: Session, user: User, session: LessonSession, now: datetime, regen_every: timedelta
 ) -> Completion:
     """Finish a session whose exercises are all answered: XP, streak, path progress (a lesson) or a heart
-    (practice), and any achievement levels this reaches."""
+    (practice), any achievement levels this reaches, and a place in this week's league."""
     _require_in_progress(session)
     answers = _answers_by_exercise(session)
     if any(
@@ -215,6 +217,7 @@ def complete_session(
         add_hearts(user, PRACTICE_HEARTS, now, regen_every)
 
     achievements = unlock_achievements(db, user, now)
+    leaderboard_unlocked = join_league(db, user, now)
     db.commit()
     return Completion(
         xp_earned=xp,
@@ -225,6 +228,7 @@ def complete_session(
         lessons_total=len(skill.lessons),
         node_completed=progress.completed_at is not None,
         achievements=achievements,
+        leaderboard_unlocked=leaderboard_unlocked,
     )
 
 

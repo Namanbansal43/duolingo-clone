@@ -22,12 +22,12 @@ def test_courses_in_display_order_with_only_spanish_available(client: TestClient
 
 def test_courses_count_the_learners_studying_them(client: TestClient, db: Session, clock: FixedClock) -> None:
     spanish, french = client.get("/api/v1/courses").json()[:2]
-    assert (spanish["learners"], french["learners"]) == (1, 0)  # the built-in learner studies Spanish
+    assert (spanish["learners"], french["learners"]) == (30, 0)  # the learner and the 29 seeded rivals
 
     db.add_all(
         User(
-            username=f"rival{i}",
-            display_name=f"Rival {i}",
+            username=f"student{i}",
+            display_name=f"Student {i}",
             created_at=clock.now(),
             hearts_updated_at=clock.now(),
             active_course_id=spanish["id"],
@@ -36,7 +36,7 @@ def test_courses_count_the_learners_studying_them(client: TestClient, db: Sessio
     )
     db.commit()
 
-    assert client.get("/api/v1/courses").json()[0]["learners"] == 3
+    assert client.get("/api/v1/courses").json()[0]["learners"] == 32
 
 
 def test_unknown_route_uses_the_error_envelope(client: TestClient) -> None:

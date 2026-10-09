@@ -51,6 +51,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
                 "name": "sessions",
                 "description": "Playing a lesson: start it, answer each exercise, finish or quit.",
             },
+            {
+                "name": "leaderboard",
+                "description": "Weekly leagues: this week's standings, and moving up or down a league.",
+            },
             {"name": "health", "description": "Liveness check."},
         ],
         lifespan=lifespan,
