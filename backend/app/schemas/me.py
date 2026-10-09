@@ -45,6 +45,10 @@ class MeOut(BaseModel):
     gems: int
     hearts: HeartsOut
     streak: StreakOut
+    now: datetime = Field(
+        description="The app's current time: real time, or later after the demo tools advanced the clock. "
+        "Countdowns such as the next heart or the league's end are measured from it."
+    )
 
 
 class DailyXpOut(BaseModel):

@@ -14,8 +14,16 @@ from app.models.content import (
     SkillKind,
     Unit,
 )
+from app.models.demo import DemoClock
 from app.models.leagues import League, LeagueMembership, Rival
-from app.models.learner import DAILY_GOAL_OPTIONS, MAX_STREAK_FREEZES, User, UserSettings, UserSkillProgress
+from app.models.learner import (
+    DAILY_GOAL_OPTIONS,
+    MAX_STREAK_FREEZES,
+    DarkMode,
+    User,
+    UserSettings,
+    UserSkillProgress,
+)
 
 __all__ = [
     "DAILY_GOAL_OPTIONS",
@@ -26,6 +34,8 @@ __all__ = [
     "AchievementTier",
     "Base",
     "Course",
+    "DarkMode",
+    "DemoClock",
     "Exercise",
     "ExerciseOption",
     "ExerciseType",

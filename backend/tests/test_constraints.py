@@ -11,6 +11,7 @@ from app.models import (
     AcceptedAnswer,
     Achievement,
     Base,
+    DemoClock,
     Exercise,
     ExerciseOption,
     ExerciseType,
@@ -64,6 +65,19 @@ def test_foreign_keys_are_enforced(db: Session, learner: User) -> None:
 )
 def test_learner_state_stays_in_range(db: Session, learner: User, column: str, value: int) -> None:
     setattr(learner, column, value)
+    with pytest.raises(IntegrityError, match="CHECK"):
+        db.commit()
+
+
+def test_dark_mode_is_a_known_choice(db: Session, learner: User) -> None:
+    learner.settings.dark_mode = "dim"
+    with pytest.raises(IntegrityError, match="CHECK"):
+        db.commit()
+
+
+@pytest.mark.parametrize(("row_id", "days_ahead"), [(2, 0), (1, -1)])
+def test_the_demo_clock_is_one_row_that_only_moves_forward(db: Session, row_id: int, days_ahead: int) -> None:
+    db.add(DemoClock(id=row_id, days_ahead=days_ahead))
     with pytest.raises(IntegrityError, match="CHECK"):
         db.commit()
 

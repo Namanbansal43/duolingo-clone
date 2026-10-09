@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.db import create_db_engine, run_migrations
 from app.core.errors import register_error_handlers
 from app.seed import seed_database
+from app.services.demo import app_clock
 
 API_DESCRIPTION = """
 There is no login: the brief assumes a logged-in user, so every request acts as the built-in learner.
@@ -35,7 +36,8 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             run_migrations(engine)
         if settings.seed_on_startup:
             with session_factory() as db:
-                seed_database(db, default_username=settings.default_username, now=clock.now())
+                now = app_clock(db, clock).now()
+                seed_database(db, default_username=settings.default_username, now=now)
         yield
         engine.dispose()
 
@@ -54,6 +56,11 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             {
                 "name": "leaderboard",
                 "description": "Weekly leagues: this week's standings, and moving up or down a league.",
+            },
+            {
+                "name": "demo",
+                "description": "Tools for trying the app: move its clock forward a day, empty the hearts, "
+                "start over.",
             },
             {"name": "health", "description": "Liveness check."},
         ],

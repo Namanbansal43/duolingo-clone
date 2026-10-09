@@ -11,10 +11,12 @@ from app.models import (
     SessionStatus,
     User,
     UserAchievement,
+    UserSettings,
     UserSkillProgress,
     XpEvent,
 )
 from app.schemas.me import MeUpdate, Onboarding
+from app.schemas.settings import UserSettingsUpdate
 from app.services.hearts import live_hearts
 from app.services.rules import HEART_REFILL_GEMS, STARTING_GEMS
 
@@ -41,6 +43,23 @@ def update_learner(db: Session, user: User, changes: MeUpdate) -> None:
         user.timezone = changes.timezone
 
     db.commit()
+
+
+def learner_settings(db: Session, user: User) -> UserSettings:
+    """The learner's preferences, created with the defaults the first time they are needed."""
+    if user.settings is None:
+        user.settings = UserSettings()
+        db.flush()
+    return user.settings
+
+
+def update_settings(db: Session, user: User, changes: UserSettingsUpdate) -> UserSettings:
+    """Save the choices made on the settings page. Omitted fields are unchanged."""
+    settings = learner_settings(db, user)
+    for name, value in changes.model_dump(exclude_none=True).items():
+        setattr(settings, name, value)
+    db.commit()
+    return settings
 
 
 def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: datetime) -> None:

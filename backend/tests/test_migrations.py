@@ -40,7 +40,7 @@ def test_migrations_roll_back_and_forward(settings: Settings) -> None:
     engine.dispose()
 
     assert tables == set(Base.metadata.tables)
-    assert len(tables) == 19
+    assert len(tables) == 20
 
 
 def test_upgrading_keeps_existing_learners(settings: Settings) -> None:
@@ -75,6 +75,31 @@ def test_upgrading_keeps_existing_learners(settings: Settings) -> None:
 
     assert tuple(row) == ("early_bird", 1, 120, 45, 0, 0)  # existing learners have profiles
     assert foreign_keys_on == 1  # migrations turn them off; app connections must get them back
+
+
+def test_upgrading_turns_dark_mode_into_a_choice(settings: Settings) -> None:
+    """Before 0007 dark mode was a flag nobody could change, so "off" was only the default."""
+    engine = create_db_engine(settings.database_url)
+    run_migrations(engine, "0006")
+    with engine.begin() as connection:
+        for user_id, dark in [(1, 0), (2, 1)]:
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, username, display_name, created_at, timezone, daily_goal_xp, "
+                    "total_xp, gems, hearts, max_hearts, hearts_updated_at, current_streak, longest_streak) "
+                    f"VALUES ({user_id}, 'u{user_id}', 'U', '2026-10-01', 'UTC', 20, 0, 0, 5, 5, "
+                    "'2026-10-01', 0, 0)"
+                )
+            )
+            connection.execute(text(f"INSERT INTO user_settings VALUES ({user_id}, 1, 1, 1, 1, {dark})"))
+
+    run_migrations(engine)
+
+    with engine.connect() as connection:
+        rows = connection.execute(text("SELECT user_id, dark_mode FROM user_settings ORDER BY user_id")).all()
+    engine.dispose()
+
+    assert [tuple(row) for row in rows] == [(1, "system"), (2, "on")]
 
 
 def test_seeding_again_adds_nothing_and_keeps_progress(

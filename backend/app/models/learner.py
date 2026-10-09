@@ -1,16 +1,25 @@
 """The learner, their preferences and their progress through the path."""
 
 from datetime import date, datetime
+from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, ForeignKey, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, UTCDateTime
+from app.models.base import Base, UTCDateTime, one_of
 from app.models.content import Course
 
 # Casual, Regular, Serious, Intense
 DAILY_GOAL_OPTIONS = (10, 20, 30, 50)
 MAX_STREAK_FREEZES = 2
+
+
+class DarkMode(StrEnum):
+    """The settings page's dark mode choice, as on duolingo.com."""
+
+    SYSTEM = "system"  # follow the device's light or dark setting
+    ON = "on"
+    OFF = "off"
 
 
 class User(Base):
@@ -65,13 +74,14 @@ class UserSettings(Base):
     """Preferences from the settings page, one row per learner (kept off the busy users row)."""
 
     __tablename__ = "user_settings"
+    __table_args__ = (CheckConstraint(one_of("dark_mode", DarkMode), name="dark_mode_known"),)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     sound_effects: Mapped[bool] = mapped_column(default=True)
     animations: Mapped[bool] = mapped_column(default=True)
     motivational_messages: Mapped[bool] = mapped_column(default=True)
     listening_exercises: Mapped[bool] = mapped_column(default=True)
-    dark_mode: Mapped[bool] = mapped_column(default=False)
+    dark_mode: Mapped[str] = mapped_column(String(8), default=DarkMode.SYSTEM)
 
     user: Mapped[User] = relationship(back_populates="settings")
 
