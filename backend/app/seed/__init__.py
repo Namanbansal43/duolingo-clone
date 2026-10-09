@@ -20,7 +20,7 @@ from app.models import (
     XpSource,
 )
 from app.seed import data, spanish
-from app.services.rules import LESSON_XP
+from app.services.rules import LESSON_XP, STARTING_GEMS
 from app.services.streak import local_date
 
 
@@ -104,7 +104,7 @@ def _seed_default_learner(db: Session, username: str, now: datetime) -> None:
             created_at=now - timedelta(days=max(days for days, _ in data.DEMO_HISTORY)),
             active_course=course,
             daily_goal_xp=data.DEFAULT_LEARNER_DAILY_GOAL_XP,
-            gems=data.DEFAULT_LEARNER_GEMS,
+            gems=STARTING_GEMS,
             hearts_updated_at=now,
         )
         db.add(learner)

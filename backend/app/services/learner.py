@@ -1,11 +1,20 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.models import Course, LessonSession, SessionStatus, User, XpEvent
-from app.schemas.me import MeUpdate
+from app.models import (
+    Course,
+    LessonSession,
+    SessionStatus,
+    User,
+    UserAchievement,
+    UserSkillProgress,
+    XpEvent,
+)
+from app.schemas.me import MeUpdate, Onboarding
+from app.services.rules import STARTING_GEMS
 
 
 def available_course(db: Session, course_id: int) -> Course:
@@ -29,6 +38,30 @@ def update_learner(db: Session, user: User, changes: MeUpdate) -> None:
     if changes.timezone is not None:
         user.timezone = changes.timezone
 
+    db.commit()
+
+
+def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: datetime) -> None:
+    """Finish "Get started": the learner begins as a brand-new account, at the first node of the chosen
+    course. There is one built-in learner, so signing up clears their history (lesson sessions and their
+    answers, XP, path progress, achievements) and resets their stats; preferences on the settings page
+    are kept. Nothing changes if the course can't be studied."""
+    course = available_course(db, choices.active_course_id)
+
+    for model in (XpEvent, LessonSession, UserSkillProgress, UserAchievement):
+        db.execute(delete(model).where(model.user_id == user.id))  # answers go with their sessions
+
+    user.created_at = now
+    user.active_course = course
+    user.daily_goal_xp = choices.daily_goal_xp
+    user.timezone = choices.timezone
+    user.total_xp = 0
+    user.gems = STARTING_GEMS
+    user.hearts = user.max_hearts
+    user.hearts_updated_at = now
+    user.current_streak = user.longest_streak = 0
+    user.last_streak_date = None
+    user.streak_freezes = 0
     db.commit()
 
 

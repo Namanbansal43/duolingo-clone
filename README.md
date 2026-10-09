@@ -76,9 +76,11 @@ own onboarding and measured against it at 1280×800:
 3. **"What's your daily learning goal?"**: 5, 10, 15 or 20 minutes a day. Duolingo stores these as 10, 20, 30
    and 50 XP, and so does this app. The choices are native radio buttons, so arrow keys and Enter work.
 
-Nothing is saved until the last CONTINUE, which sends one `PATCH /api/v1/me` with the course, the daily goal and
-the browser's time zone (so streak days follow the learner's own midnight), then opens `/learn`. "I already have
-an account" goes straight to `/learn`, since the learner is always logged in.
+Nothing is saved until the last CONTINUE, which sends one `POST /api/v1/me/onboarding` with the course, the daily
+goal and the browser's time zone (so streak days follow the learner's own midnight), then opens `/learn`. Signing
+up means a new account, so the learner starts over: their history and stats are cleared, and the path begins at
+its first node. "I already have an account" goes straight to `/learn` and keeps the learner as they are, since the
+learner is always logged in.
 
 Duolingo's flow also asks how you heard about it, why you are learning, how much you already know, and for
 notification permission. Those screens are left out: nothing in this app would use the answers.
@@ -91,7 +93,7 @@ Measured against duolingo.com's own `/learn` page (opened as a guest) at 1280, 1
   Learn, Leaderboards, Quests, Shop, Profile and More. It is 256 px wide with labels from 1160 px, icons only
   below that, and becomes a bottom tab bar on phones. Pages that aren't built yet show a "coming soon" message.
 - **Right rail** (1024 px and up; a stats bar across the top below that): course flag, streak, gems and hearts
-  from `GET /api/v1/me`; an "Unlock Leaderboards!" card counting down the 10 lessons that open leaderboards; and
+  from `GET /api/v1/me` (switching courses is "coming soon", as only Spanish has content); an "Unlock Leaderboards!" card counting down the 10 lessons that open leaderboards; and
   the daily quest, which tracks today's XP against the daily goal.
 - **The path** (`GET /api/v1/courses/{id}/path`): units in order, each with a sticky green header that follows
   the unit being scrolled through, and nodes that snake left and right at Duolingo's offsets (0, 45 and 70 px).
@@ -113,13 +115,15 @@ Measured against duolingo.com's own `/learn` page (opened as a guest) at 1280, 1
 | Streak | Counts days with a finished lesson, in the learner's time zone; reads 0 after a missed day | `backend/app/services/streak.py` |
 | Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes) | `backend/app/models/learner.py` |
 | Leaderboards | Open after 10 finished lessons | `frontend/src/components/app/right-rail.tsx` |
+| New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak | `backend/app/services/learner.py` |
 
 ### Demo data
 
 The seeded learner starts partway through Unit 1, so every node state is visible straight away: "Say hello"
 finished, "Introduce yourself" at lesson 2 of 3, and the rest locked. Behind that are 4 real lessons on the 3
 days before the database was first seeded: sessions, XP events, 40 XP and a 3-day streak that today's first lesson
-would extend. `python -m app.seed --reset` restores this starting point.
+would extend. This is the learner that "I already have an account" opens. Finishing "Get started" replaces them
+with a brand-new learner at the first node; `python -m app.seed --reset` restores this starting point.
 
 ## Database
 
@@ -140,7 +144,8 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | --- | --- | --- |
 | GET | `/api/health` | Liveness check, including the database |
 | GET | `/api/v1/me` | The learner with live stats: hearts after regeneration, streak and XP as of today |
-| PATCH | `/api/v1/me` | Set the active course, daily goal (10/20/30/50 XP) or time zone |
+| PATCH | `/api/v1/me` | Set the active course, daily goal (10/20/30/50 XP) or time zone, keeping progress |
+| POST | `/api/v1/me/onboarding` | Finish "Get started": the learner starts over with the chosen course, goal and time zone |
 | GET | `/api/v1/courses` | All courses in display order with learner counts; only Spanish is available |
 | GET | `/api/v1/courses/{course_id}/path` | The course's units and nodes, each completed, active or locked |
 | POST | `/api/v1/skills/{skill_id}/open-chest` | Open the treasure chest the learner has reached (+20 gems) |

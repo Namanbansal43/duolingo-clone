@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { updateMe } from "@/lib/api/endpoints";
+import { completeOnboarding } from "@/lib/api/endpoints";
 import type { CatalogCourse, DailyGoalXp } from "@/lib/api/types";
 import { comingSoon } from "@/lib/coming-soon";
 
@@ -16,7 +16,8 @@ type Step = "course" | "intro" | "goal";
 
 /**
  * The "Get started" flow: pick a course, meet Duo, choose a daily goal. Nothing is saved until the
- * end, when one PATCH /api/v1/me stores the course, the goal and the browser's time zone.
+ * end, when POST /api/v1/me/onboarding starts the learner over as a new account with the course,
+ * the goal and the browser's time zone, so the path begins at its first node.
  * Duolingo's survey screens (how did you hear about us, why are you learning...) are left out:
  * their answers would not be used anywhere.
  */
@@ -45,7 +46,7 @@ export function WelcomeFlow() {
     if (!course || goal === null) return;
     setSaving(true);
     try {
-      await updateMe({
+      await completeOnboarding({
         active_course_id: course.id,
         daily_goal_xp: goal,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

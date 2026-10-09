@@ -18,6 +18,7 @@ examples show a learner partway through Unit 1.
 | GET | [`/api/health`](#get-apihealth) | Liveness check, including the database |
 | GET | [`/api/v1/me`](#get-apiv1me) | The logged-in learner with live stats |
 | PATCH | [`/api/v1/me`](#patch-apiv1me) | Change the learner's course, daily goal or time zone |
+| POST | [`/api/v1/me/onboarding`](#post-apiv1meonboarding) | Finish "Get started": the learner starts over |
 | GET | [`/api/v1/courses`](#get-apiv1courses) | The course catalogue |
 | GET | [`/api/v1/courses/{course_id}/path`](#get-apiv1coursescourse_idpath) | A course's learning path with the learner's progress |
 | POST | [`/api/v1/skills/{skill_id}/open-chest`](#post-apiv1skillsskill_idopen-chest) | Open a treasure chest on the path |
@@ -57,14 +58,14 @@ All error codes the API returns today:
 | Status | `code` | When | Returned by |
 | --- | --- | --- | --- |
 | 404 | `not_found` | The path doesn't exist | Any URL |
-| 404 | `course_not_found` | No course has that id | `PATCH /api/v1/me`, `GET .../courses/{id}/path` |
+| 404 | `course_not_found` | No course has that id | `PATCH /api/v1/me`, `POST .../me/onboarding`, `GET .../courses/{id}/path` |
 | 404 | `skill_not_found` | No path node has that id | `POST .../skills/{id}/open-chest` |
 | 405 | `method_not_allowed` | The path exists but not with this method | Any URL |
-| 409 | `course_unavailable` | The course exists but is "coming soon" | `PATCH /api/v1/me`, `GET .../courses/{id}/path` |
+| 409 | `course_unavailable` | The course exists but is "coming soon" | `PATCH /api/v1/me`, `POST .../me/onboarding`, `GET .../courses/{id}/path` |
 | 409 | `not_a_chest` | The path node isn't a treasure chest | `POST .../skills/{id}/open-chest` |
 | 409 | `skill_locked` | The chest hasn't been reached yet | `POST .../skills/{id}/open-chest` |
 | 409 | `chest_already_opened` | The chest was opened before | `POST .../skills/{id}/open-chest` |
-| 422 | `validation_error` | The body is not valid JSON, has an invalid value or an unknown field, or an id in the URL isn't a whole number | `PATCH /api/v1/me`, endpoints with an id in the URL |
+| 422 | `validation_error` | The body is not valid JSON, misses a required field, has an invalid value or an unknown field, or an id in the URL isn't a whole number | `PATCH /api/v1/me`, `POST .../me/onboarding`, endpoints with an id in the URL |
 | 500 | `internal_error` | An unexpected server error (the details are logged on the server, never sent) | Any endpoint |
 | 503 | `learner_missing` | The database has not been seeded with the built-in learner | Every endpoint that acts as the learner |
 
@@ -72,7 +73,7 @@ Each entry in `details` describes one problem:
 
 | Field | Description |
 | --- | --- |
-| `type` | Kind of problem, e.g. `literal_error`, `extra_forbidden`, `json_invalid`, `value_error`, `int_parsing` |
+| `type` | Kind of problem, e.g. `literal_error`, `extra_forbidden`, `json_invalid`, `value_error`, `int_parsing`, `missing` |
 | `loc` | Where it is: `["body", "<field>"]`, or `["path", "<parameter>"]` for an id in the URL |
 | `msg` | What is wrong |
 | `input` | The value that was sent |
@@ -107,7 +108,7 @@ The learner, with stats as they are right now.
 | `id` | integer | Learner id |
 | `username` | string | Unique handle, e.g. `alex` |
 | `display_name` | string | Name shown in the app |
-| `joined_at` | datetime | When the learner was created |
+| `joined_at` | datetime | When the learner signed up: when the database was seeded, or when they last finished "Get started" |
 | `timezone` | string | IANA time zone, e.g. `Asia/Kolkata`. Decides when the learner's day starts. |
 | `active_course` | [Course](#course) or null | The course being studied |
 | `daily_goal_xp` | integer | XP per day: `10` Casual, `20` Regular, `30` Serious, `50` Intense |
@@ -262,8 +263,9 @@ curl http://localhost:8000/api/v1/me
 
 ## PATCH /api/v1/me
 
-Changes the learner's own preferences. Used by the "Get started" flow (course, daily goal, time zone) and later
-by the settings page. Send only the fields you want to change.
+Changes the learner's own preferences and keeps their progress; the settings page will use it. Send only the
+fields you want to change. (The "Get started" flow uses [`POST /api/v1/me/onboarding`](#post-apiv1meonboarding)
+instead, which starts the learner over.)
 
 **Request body**
 
@@ -382,6 +384,114 @@ The other `422` cases differ only in their `details` entry:
 curl -X PATCH http://localhost:8000/api/v1/me \
   -H "Content-Type: application/json" \
   -d '{"daily_goal_xp": 30, "timezone": "Asia/Kolkata"}'
+```
+
+---
+
+## POST /api/v1/me/onboarding
+
+Finishes the "Get started" flow. Signing up means a new account, so the learner starts over and their path begins
+again at its first node. The brief has a single built-in learner, so this resets that learner:
+
+| What | Becomes |
+| --- | --- |
+| Lesson sessions and their answers, XP events, path progress, unlocked achievements | Deleted |
+| `total_xp`, the streak (current and longest), streak freezes | 0 |
+| Hearts | Full |
+| Gems | 500, a new learner's balance |
+| `joined_at` | Now |
+| Course, daily goal, time zone | The values sent |
+
+The username, display name and settings-page preferences are kept. If the request is refused (any error below),
+nothing changes. "I already have an account" doesn't call this: it opens `/learn` with the learner as they are.
+
+**Request body:** all three fields are required.
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `active_course_id` | integer | Must be the `id` of a course with `is_available: true` |
+| `daily_goal_xp` | integer | One of `10`, `20`, `30`, `50` |
+| `timezone` | string | A valid IANA time zone name, at most 64 characters. The frontend sends the browser's own. |
+
+```json
+{
+  "active_course_id": 1,
+  "daily_goal_xp": 30,
+  "timezone": "Asia/Kolkata"
+}
+```
+
+**Response `200 OK`:** the new learner, as a [Me](#me) object. Their path
+([`GET /api/v1/courses/1/path`](#get-apiv1coursescourse_idpath)) now has its first node `active` and every other
+node `locked`, with `active_node_id` pointing at the first node.
+
+```json
+{
+  "id": 1,
+  "username": "alex",
+  "display_name": "Alex",
+  "joined_at": "2026-10-08T12:00:00Z",
+  "timezone": "Asia/Kolkata",
+  "active_course": {
+    "id": 1,
+    "learning_language": "es",
+    "from_language": "en",
+    "title": "Spanish",
+    "is_available": true
+  },
+  "daily_goal_xp": 30,
+  "total_xp": 0,
+  "xp_today": 0,
+  "lessons_completed": 0,
+  "gems": 500,
+  "hearts": {
+    "current": 5,
+    "max": 5,
+    "next_heart_at": null,
+    "regen_minutes": 30
+  },
+  "streak": {
+    "length": 0,
+    "extended_today": false,
+    "longest": 0
+  }
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 404 | `course_not_found` | `active_course_id` doesn't match any course |
+| 409 | `course_unavailable` | The course exists but is coming soon |
+| 422 | `validation_error` | A field is missing, the daily goal isn't an allowed value, unknown time zone, unknown field, or malformed JSON |
+| 503 | `learner_missing` | The database has not been seeded |
+| 500 | `internal_error` | Unexpected server error |
+
+The `404`, `409` and most `422` bodies are the same as for [`PATCH /api/v1/me`](#patch-apiv1me). A missing field
+looks like this, for a body without `daily_goal_xp`:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "The request is invalid.",
+    "details": [
+      {
+        "type": "missing",
+        "loc": ["body", "daily_goal_xp"],
+        "msg": "Field required",
+        "input": { "active_course_id": 1, "timezone": "Asia/Kolkata" }
+      }
+    ]
+  }
+}
+```
+
+```bash
+curl -X POST http://localhost:8000/api/v1/me/onboarding \
+  -H "Content-Type: application/json" \
+  -d '{"active_course_id": 1, "daily_goal_xp": 30, "timezone": "Asia/Kolkata"}'
 ```
 
 ---

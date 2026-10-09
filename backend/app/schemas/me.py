@@ -42,6 +42,14 @@ class MeOut(BaseModel):
     streak: StreakOut
 
 
+def known_timezone(value: str) -> str:
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError("unknown IANA time zone") from exc
+    return value
+
+
 class MeUpdate(BaseModel):
     """Partial update: omitted (or null) fields are left unchanged."""
 
@@ -56,9 +64,21 @@ class MeUpdate(BaseModel):
     @field_validator("timezone")
     @classmethod
     def _known_timezone(cls, value: str | None) -> str | None:
-        if value is not None:
-            try:
-                ZoneInfo(value)
-            except (ZoneInfoNotFoundError, ValueError) as exc:
-                raise ValueError("unknown IANA time zone") from exc
-        return value
+        return value if value is None else known_timezone(value)
+
+
+class Onboarding(BaseModel):
+    """The choices made in the "Get started" flow. All are required."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    active_course_id: int = Field(description="An available course's id.")
+    daily_goal_xp: DailyGoal
+    timezone: str = Field(
+        max_length=64, description="IANA time zone name (the browser's).", examples=["Asia/Kolkata"]
+    )
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, value: str) -> str:
+        return known_timezone(value)

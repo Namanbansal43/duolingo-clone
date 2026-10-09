@@ -1,10 +1,13 @@
 import { apiFetch } from "./client";
-import type { CatalogCourse, ChestReward, CoursePath, Me, MeUpdate } from "./types";
+import type { CatalogCourse, ChestReward, CoursePath, Me, MeUpdate, Onboarding } from "./types";
 
 export const getMe = () => apiFetch<Me>("/me");
 
 export const updateMe = (changes: MeUpdate) =>
   apiFetch<Me>("/me", { method: "PATCH", body: JSON.stringify(changes) });
+
+export const completeOnboarding = (choices: Onboarding) =>
+  apiFetch<Me>("/me/onboarding", { method: "POST", body: JSON.stringify(choices) });
 
 export const getCourses = () => apiFetch<CatalogCourse[]>("/courses");
 

@@ -48,7 +48,6 @@ AVAILABLE_COURSES = {"es"}
 DEFAULT_LEARNER_NAME = "Alex"
 DEFAULT_LEARNER_COURSE = "es"
 DEFAULT_LEARNER_DAILY_GOAL_XP = 20
-DEFAULT_LEARNER_GEMS = 500
 
 # key, title, description ({threshold} is filled in per tier), metric, thresholds for tiers 1, 2, 3...
 ACHIEVEMENTS: list[tuple[str, str, str, str, tuple[int, ...]]] = [

@@ -6,7 +6,7 @@ SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has
 | --- | --- | --- |
 | Content | `courses`, `units`, `skills`, `lessons`, `exercises`, `exercise_options`, `accepted_answers` | No, seeded |
 | Learner | `users`, `user_settings`, `user_skill_progress` | Yes |
-| Activity history | `lesson_sessions`, `session_answers`, `xp_events` | Append-only |
+| Activity history | `lesson_sessions`, `session_answers`, `xp_events` | Append-only; cleared only when the learner starts over |
 | Achievements | `achievements`, `achievement_tiers` (seeded), `user_achievements` | Unlocks only |
 
 The guiding rule: **store what happened, derive everything else when it is read.** Locked nodes, live hearts,
@@ -196,6 +196,7 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | A learner | Their settings, progress, sessions, answers, XP and unlocks go too (`CASCADE`) | Nothing of theirs is useful without them |
 | A course someone is studying | Their `active_course_id` becomes NULL (`SET NULL`) | The learner stays |
 | A lesson session | Its XP stays, with `session_id` set to NULL (`SET NULL`) | XP already earned is kept |
+| A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events and unlocks are deleted; the `users` row is reset, settings kept | Signing up means a new account, and there is one built-in learner |
 
 ## How the five exercise types are stored
 
@@ -250,7 +251,7 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | Spanish content | 3 units, each with 5 path nodes: two lesson nodes, a treasure chest, a lesson node, and a unit review (15 nodes, 33 lessons). Defined as data in `backend/app/seed/spanish.py`. |
 | Achievements | Wildfire (streak), Sage (XP), Scholar (lessons) and Sharpshooter (perfect lessons), 4 tiers each |
 | The built-in learner | `alex`, studying Spanish with a 20 XP daily goal and 500 gems |
-| Their history | 4 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak |
+| Their history | 4 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. Finishing "Get started" clears it. |
 
 ## Migrations
 

@@ -2,11 +2,13 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.main import create_app
-from app.models import User
+from app.models import Achievement, LessonSession, User, UserAchievement, UserSkillProgress, XpEvent
+from app.services.rules import STARTING_GEMS
 from tests.conftest import NOW, FixedClock
 
 
@@ -123,3 +125,80 @@ def test_omitted_or_null_fields_are_left_unchanged(client: TestClient, payload: 
 
     assert response.status_code == 200
     assert response.json() == before
+
+
+def get_started(client: TestClient, **overrides: object) -> dict:
+    """The choices the "Get started" flow sends at the end, for the learner's current course."""
+    spanish_id = client.get("/api/v1/me").json()["active_course"]["id"]
+    return {"active_course_id": spanish_id, "daily_goal_xp": 30, "timezone": "Asia/Kolkata"} | overrides
+
+
+def test_get_started_begins_a_new_learner(client: TestClient, db: Session, learner: User) -> None:
+    # On top of the seeded history: spent hearts and gems, a streak freeze and an achievement.
+    learner.hearts, learner.gems, learner.streak_freezes = 2, 120, 1
+    first_achievement = db.scalars(select(Achievement).order_by(Achievement.position)).first()
+    db.add(UserAchievement(user_id=learner.id, achievement_id=first_achievement.id, tier=1, unlocked_at=NOW))
+    db.commit()
+
+    response = client.post("/api/v1/me/onboarding", json=get_started(client))
+
+    assert response.status_code == 200
+    me = response.json()
+    assert me["active_course"]["title"] == "Spanish"
+    assert (me["daily_goal_xp"], me["timezone"]) == (30, "Asia/Kolkata")
+    assert me["joined_at"] == "2026-10-08T12:00:00Z"
+    assert (me["total_xp"], me["xp_today"], me["lessons_completed"], me["gems"]) == (0, 0, 0, STARTING_GEMS)
+    assert me["hearts"] == {"current": 5, "max": 5, "next_heart_at": None, "regen_minutes": 30}
+    assert me["streak"] == {"length": 0, "extended_today": False, "longest": 0}
+    assert client.get("/api/v1/me").json() == me
+
+    path = client.get(f"/api/v1/courses/{me['active_course']['id']}/path").json()
+    nodes = [node for unit in path["units"] for node in unit["nodes"]]
+    assert [node["state"] for node in nodes] == ["active"] + ["locked"] * (len(nodes) - 1)
+    assert all(node["lessons_completed"] == 0 for node in nodes)
+    assert path["active_node_id"] == nodes[0]["id"]
+
+    for model in (LessonSession, XpEvent, UserSkillProgress, UserAchievement):
+        assert db.scalar(select(func.count()).select_from(model).where(model.user_id == learner.id)) == 0
+    assert db.get(User, learner.id).streak_freezes == 0
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"daily_goal_xp": None},
+        {"daily_goal_xp": 25},
+        {"timezone": "Mars/Olympus_Mons"},
+        {"gems": 99999},
+    ],
+    ids=["missing-goal", "goal-not-an-option", "unknown-time-zone", "unknown-field"],
+)
+def test_get_started_rejects_invalid_choices(client: TestClient, change: dict) -> None:
+    choices = {key: value for key, value in (get_started(client) | change).items() if value is not None}
+    before = client.get("/api/v1/me").json()
+
+    response = client.post("/api/v1/me/onboarding", json=choices)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+    assert client.get("/api/v1/me").json() == before
+
+
+@pytest.mark.parametrize(
+    ("course", "status", "code"),
+    [("fr", 409, "course_unavailable"), (None, 404, "course_not_found")],
+    ids=["coming-soon", "unknown"],
+)
+def test_get_started_keeps_the_history_when_the_course_is_refused(
+    client: TestClient, course: str | None, status: int, code: str
+) -> None:
+    courses = {c["learning_language"]: c["id"] for c in client.get("/api/v1/courses").json()}
+    before = client.get("/api/v1/me").json()
+
+    response = client.post(
+        "/api/v1/me/onboarding", json=get_started(client, active_course_id=courses.get(course, 9999))
+    )
+
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == code
+    assert client.get("/api/v1/me").json() == before  # still 40 XP, 4 lessons, a 3-day streak

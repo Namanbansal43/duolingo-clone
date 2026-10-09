@@ -82,6 +82,13 @@ export type MeUpdate = {
   timezone?: string;
 };
 
+/** The "Get started" choices; sending them starts the learner over. */
+export type Onboarding = {
+  active_course_id: number;
+  daily_goal_xp: DailyGoalXp;
+  timezone: string;
+};
+
 export type ApiErrorBody = {
   error: {
     code: string;

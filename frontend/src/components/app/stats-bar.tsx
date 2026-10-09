@@ -1,9 +1,11 @@
+"use client";
+
 import Image from "next/image";
-import Link from "next/link";
 
 import { Flag } from "@/components/icons/flag";
 import type { Me } from "@/lib/api/types";
 import { cn } from "@/lib/cn";
+import { comingSoon } from "@/lib/coming-soon";
 import { isFlagCode } from "@/lib/languages";
 
 const itemClasses = "flex h-11 items-center gap-2.5 rounded-xl px-4 text-[15px] leading-5 font-bold";
@@ -15,16 +17,18 @@ export function StatsBar({ me, className }: { me: Me; className?: string }) {
 
   return (
     <div className={cn("flex items-center justify-between", className)}>
-      <Link
-        href="/welcome"
-        title="Change course"
-        aria-label={`Learning ${me.active_course?.title ?? "no course yet"}. Change course`}
+      {/* Only Spanish can be studied, so there is no other course to switch to yet. */}
+      <button
+        type="button"
+        onClick={() => comingSoon("Switching courses")}
+        title={me.active_course?.title}
+        aria-label={`Learning ${me.active_course?.title ?? "no course yet"}`}
         className={cn(itemClasses, "hover:bg-snow")}
       >
         {me.active_course && isFlagCode(me.active_course.learning_language) && (
           <Flag code={me.active_course.learning_language} width={31} className="rounded-[18%]" />
         )}
-      </Link>
+      </button>
       <div className={itemClasses} title={`${streak.length} day streak`}>
         <Image
           src={streak.extended_today ? "/app/stats/streak.svg" : "/app/stats/streak-off.svg"}

@@ -11,7 +11,7 @@ from app.core.config import BACKEND_DIR, Settings
 from app.core.db import create_db_engine, run_migrations
 from app.models import Lesson, LessonSession, Skill, Unit, User, UserSkillProgress, XpEvent, XpSource
 from app.seed import data, seed_database, spanish
-from app.services.rules import CHEST_GEMS
+from app.services.rules import CHEST_GEMS, STARTING_GEMS
 from tests.conftest import NOW, FixedClock
 
 
@@ -106,7 +106,7 @@ def test_opening_the_chest_once_it_is_reached(client: TestClient, db: Session, l
     complete(db, learner, unit_one[1]["id"])
     opened = client.post(f"/api/v1/skills/{chest_id}/open-chest")
     assert opened.status_code == 200
-    assert opened.json() == {"gems_awarded": CHEST_GEMS, "gems": data.DEFAULT_LEARNER_GEMS + CHEST_GEMS}
+    assert opened.json() == {"gems_awarded": CHEST_GEMS, "gems": STARTING_GEMS + CHEST_GEMS}
     assert node_states(get_path(client))[0] == ["completed", "completed", "completed", "active", "locked"]
 
     again = client.post(f"/api/v1/skills/{chest_id}/open-chest")
