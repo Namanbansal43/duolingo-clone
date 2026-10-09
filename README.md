@@ -4,7 +4,7 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 
 | Part | Stack | Status |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile, leaderboard, settings, dark mode |
+| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile, leaderboard, quests, shop, settings, dark mode |
 | `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course and rivals; learner, path, lesson, achievement, league, settings and demo-tools API |
 
 ## Running the backend
@@ -68,6 +68,8 @@ defaults to `http://localhost:8000`; set `API_URL` (see `frontend/.env.example`)
 | `/profile` | The learner's profile: statistics, XP this week, achievements (below) |
 | `/profile/achievements` | Every achievement with its progress ("View all") |
 | `/leaderboard` | This week's league: 30 learners ranked by XP (below) |
+| `/quests` | The daily quest: today's XP against the daily goal (below) |
+| `/shop` | Spend gems on a heart refill (below) |
 | `/settings/preferences` | Sound, animations, motivational messages, listening exercises, daily goal and dark mode (below) |
 | `/settings/demo` | Demo tools: move the app's clock forward a day, empty the hearts, reset the demo (below) |
 
@@ -100,12 +102,12 @@ Measured against duolingo.com's own `/learn` page (opened as a guest) at 1280, 1
 
 - **App shell**, shared by every signed-in page (`frontend/src/app/(app)/layout.tsx`): a left sidebar with
   Learn, Leaderboards, Quests, Shop, Profile and More. It is 256 px wide with labels from 1160 px, icons only
-  below that, and becomes a bottom tab bar on phones. Pages that aren't built yet show a "coming soon" message.
+  below that, and becomes a bottom tab bar on phones. MORE opens a menu with Settings.
 - **Right rail** (1024 px and up; a stats bar across the top below that): course flag, streak, gems and hearts
   from `GET /api/v1/me` (switching courses is "coming soon", as only Spanish has content); the league card
   (`GET /api/v1/leaderboard`): "Unlock Leaderboards!" counting down the 10 lessons that open them, then the
   league with "You're ranked #12" and VIEW LEAGUE; and the daily quest, which tracks today's XP against the daily
-  goal.
+  goal (VIEW ALL opens `/quests`).
 - **The path** (`GET /api/v1/courses/{id}/path`): units in order, each with a sticky green header that follows
   the unit being scrolled through, and nodes that snake left and right at Duolingo's offsets (0, 45 and 70 px).
   Completed nodes show a check, the next one has a progress ring and a bouncing START bubble, and the rest are
@@ -200,6 +202,23 @@ finished #3 and advanced to the Silver League"...).
 - **Live rivals**: the rivals keep practising through the week (see the rules below), so ranks change between
   visits even without playing.
 
+### `/quests` and `/shop`
+
+Both are measured against duolingo.com's own pages and kept to what the brief asks for: a daily goal
+indicator, and hearts refilled with mocked gems. Neither needs new API endpoints.
+
+- **Quests** shows the brief's daily goal as Duolingo's daily quest: "Earn 20 XP", filled by today's XP
+  (`xp_today` from `GET /api/v1/me`), with the time left until it refreshes at midnight in the learner's time
+  zone. As on duolingo.com for a new learner, the page opens with the purple "Welcome!" banner, the next card
+  reads "More quests unlock soon", and the rail says "Monthly challenges unlock soon!" with START A LESSON.
+  Quest rewards are not part of the brief, so finishing the quest only fills the bar.
+- **Shop** has duolingo.com's Hearts section: Refill Hearts for 350 gems (`POST /api/v1/me/hearts/refill`,
+  the same purchase the out-of-hearts screen offers). The button reads FULL when hearts are full and is greyed
+  out without enough gems. Gems are mocked, as the brief allows: they come from the starting 500 and treasure
+  chests, never from money. As on duolingo.com, a guest sees "You earned 500 gems! Create a profile to spend
+  them in the store!" over the shop. Duolingo's Power-Ups section (Streak Freeze) is left out: it isn't in
+  the brief.
+
 ### `/settings`: preferences, dark mode and demo tools
 
 Settings open from the sidebar's MORE menu (on phones, from the gear on the profile), as on duolingo.com.
@@ -241,9 +260,9 @@ remembers the last dark mode choice so the next page load paints in the right th
 | Grading | Case, punctuation and spacing never matter; typed answers forgive one slip or a missing accent | `backend/app/services/grading.py` |
 | Chest | 20 gems, once | `backend/app/services/rules.py` |
 | Hearts | 5 at most; one comes back every 30 minutes (`HEART_REGEN_MINUTES`). In a lesson a wrong answer, wrong pair or SKIP costs one, and a lesson needs at least one to start | `backend/app/services/hearts.py`, `sessions.py` |
-| Earning hearts back | Practice gives one back; a refill costs 350 gems | `backend/app/services/rules.py` |
+| Earning hearts back | Practice gives one back; a refill costs 350 gems (shop or out-of-hearts screen) | `backend/app/services/rules.py` |
 | Streak | The day's first finished lesson or practice adds a day (or starts again at 1 after a gap), in the learner's time zone; reads 0 after a missed day | `backend/app/services/streak.py` |
-| Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes) | `backend/app/models/learner.py` |
+| Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes); it is the daily quest, which resets at midnight in the learner's time zone | `backend/app/models/learner.py` |
 | Leaderboards | Open after 10 finished lessons (practice included); then each week, finishing a lesson joins that week's league | `backend/app/services/rules.py`, `leagues.py` |
 | Leagues | Bronze, Silver, Gold, Sapphire, Ruby, Emerald, Amethyst, Pearl, Obsidian, Diamond. A week runs Monday to Sunday in the learner's time zone; 30 learners compete by XP earned that week. The top 7 move up a league and the bottom 5 down (none down from Bronze, none up from Diamond) | `backend/app/seed/data.py`, `backend/app/services/leagues.py` |
 | Rivals | 29 seeded learners, from keen to occasional. They follow the learner from league to league. Each rival's day (whether they practise, when, and how much XP) is fixed by their id and the date, and is written as real XP events whenever the leaderboard is read, so no background job runs | `backend/app/services/leagues.py` |

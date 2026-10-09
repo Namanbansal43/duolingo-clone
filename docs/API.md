@@ -647,7 +647,7 @@ curl -X POST http://localhost:8000/api/v1/me/onboarding \
 ## POST /api/v1/me/hearts/refill
 
 Refills hearts to full for 350 gems. Purchases are mocked: gems come from chests and the starting balance,
-never from money. The out-of-hearts screen offers this.
+never from money. The shop and the out-of-hearts screen offer this.
 
 **Request:** no body.
 
