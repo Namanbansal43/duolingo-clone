@@ -50,9 +50,22 @@ DEFAULT_LEARNER_COURSE = "es"
 DEFAULT_LEARNER_DAILY_GOAL_XP = 20
 
 # key, title, description ({threshold} is filled in per tier), metric, thresholds for tiers 1, 2, 3...
+# Wildfire and Sage have duolingo.com's ten levels; Scholar counts lessons here rather than words.
 ACHIEVEMENTS: list[tuple[str, str, str, str, tuple[int, ...]]] = [
-    ("wildfire", "Wildfire", "Reach a {threshold} day streak", "streak", (3, 7, 14, 30)),
-    ("sage", "Sage", "Earn {threshold} XP", "total_xp", (100, 250, 500, 1000)),
+    (
+        "wildfire",
+        "Wildfire",
+        "Reach a {threshold} day streak",
+        "streak",
+        (3, 7, 14, 30, 50, 75, 125, 180, 250, 365),
+    ),
+    (
+        "sage",
+        "Sage",
+        "Earn {threshold} XP",
+        "total_xp",
+        (100, 250, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000),
+    ),
     ("scholar", "Scholar", "Complete {threshold} lessons", "lessons_completed", (5, 10, 25, 50)),
     (
         "sharpshooter",

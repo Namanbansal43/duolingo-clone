@@ -1,15 +1,20 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Query
 from sqlalchemy.orm import Session
 
-from app.api.v1.views import hearts_out, regen_every
+from app.api.v1.views import achievement_out, hearts_out, regen_every
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.errors import error_response
 from app.deps import ClockDep, CurrentUser, DbSession, SettingsDep
 from app.models import User
+from app.schemas.achievement import AchievementOut
 from app.schemas.course import CourseOut
-from app.schemas.me import MeOut, MeUpdate, Onboarding, StreakOut
+from app.schemas.me import DailyXpOut, MeOut, MeUpdate, Onboarding, StreakOut
+from app.services.achievements import achievement_progress
 from app.services.learner import (
+    daily_xp,
     lessons_completed,
     refill_hearts,
     start_as_new_learner,
@@ -77,6 +82,29 @@ def refill_my_hearts(user: CurrentUser, db: DbSession, clock: ClockDep, settings
     """Refill hearts to full for 350 gems (a mocked purchase: gems are never bought with money)."""
     refill_hearts(db, user, clock.now(), regen_every(settings))
     return _me_out(db, user, clock, settings)
+
+
+@router.get("/achievements", response_model=list[AchievementOut])
+def get_my_achievements(user: CurrentUser, db: DbSession) -> list[AchievementOut]:
+    """Every achievement, with the learner's level and progress towards the next one."""
+    return [achievement_out(progress) for progress in achievement_progress(db, user)]
+
+
+@router.get(
+    "/xp-history",
+    response_model=list[DailyXpOut],
+    responses={422: error_response("`validation_error`: `days` must be between 1 and 31.")},
+)
+def get_my_xp_history(
+    user: CurrentUser,
+    db: DbSession,
+    clock: ClockDep,
+    days: Annotated[int, Query(ge=1, le=31, description="How many days, ending today.")] = 7,
+) -> list[DailyXpOut]:
+    """XP earned on each of the last `days` days, ending today in the learner's time zone, oldest first.
+    Days without XP are included with 0. The profile's "XP this week" chart shows the last 7."""
+    today = local_date(clock.now(), user.timezone)
+    return [DailyXpOut(day=day, xp=xp) for day, xp in daily_xp(db, user, today, days)]
 
 
 def _me_out(db: Session, user: User, clock: Clock, settings: Settings) -> MeOut:

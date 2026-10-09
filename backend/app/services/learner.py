@@ -86,9 +86,30 @@ def xp_earned_on(db: Session, user: User, day: date) -> int:
     return total or 0
 
 
-def lessons_completed(db: Session, user: User) -> int:
-    return db.scalar(
+def daily_xp(db: Session, user: User, last_day: date, days: int) -> list[tuple[date, int]]:
+    """XP per calendar day for the `days` days ending on `last_day`, oldest first, days without XP
+    included."""
+    first_day = last_day - timedelta(days=days - 1)
+    totals = {
+        day: xp
+        for day, xp in db.execute(
+            select(XpEvent.local_date, func.sum(XpEvent.amount))
+            .where(XpEvent.user_id == user.id, XpEvent.local_date.between(first_day, last_day))
+            .group_by(XpEvent.local_date)
+        )
+    }
+    return [
+        (day, totals.get(day, 0)) for day in (first_day + timedelta(days=offset) for offset in range(days))
+    ]
+
+
+def lessons_completed(db: Session, user: User, *, perfect: bool = False) -> int:
+    """Lessons and practice sessions finished; with `perfect`, only those without a mistake."""
+    query = (
         select(func.count())
         .select_from(LessonSession)
         .where(LessonSession.user_id == user.id, LessonSession.status == SessionStatus.COMPLETED)
     )
+    if perfect:
+        query = query.where(LessonSession.mistakes == 0)
+    return db.scalar(query)

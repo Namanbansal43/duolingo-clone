@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.achievement import AchievementOut
 from app.schemas.me import HeartsOut
 
 ExerciseKind = Literal["multiple_choice", "word_bank", "match_pairs", "fill_blank", "type_answer", "listen"]
@@ -125,3 +126,6 @@ class CompletionOut(BaseModel):
     streak: StreakChangeOut
     hearts: HeartsOut
     node: NodeProgressOut
+    achievements: list[AchievementOut] = Field(
+        description="Achievements that went up a level, at their new level; usually empty."
+    )

@@ -168,7 +168,8 @@ def test_xp_events_are_positive_and_from_a_known_source(
 
 def test_achievements_can_only_be_unlocked_at_existing_tiers(db: Session, learner: User) -> None:
     wildfire = db.scalars(select(Achievement).where(Achievement.key == "wildfire")).one()
-    db.add(UserAchievement(user_id=learner.id, achievement_id=wildfire.id, tier=1, unlocked_at=NOW))
+    # The seed unlocked tier 1 (the demo learner has a 3 day streak).
+    db.add(UserAchievement(user_id=learner.id, achievement_id=wildfire.id, tier=2, unlocked_at=NOW))
     db.commit()
 
     db.add(UserAchievement(user_id=learner.id, achievement_id=wildfire.id, tier=99, unlocked_at=NOW))
@@ -196,7 +197,7 @@ def test_deleting_a_learner_deletes_everything_they_own(db: Session, lesson: Les
                 earned_at=NOW,
                 local_date=NOW.date(),
             ),
-            UserAchievement(user_id=learner.id, achievement_id=wildfire.id, tier=1, unlocked_at=NOW),
+            UserAchievement(user_id=learner.id, achievement_id=wildfire.id, tier=2, unlocked_at=NOW),
         ]
     )
     db.commit()

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -36,10 +36,17 @@ class MeOut(BaseModel):
     xp_today: int = Field(
         description="XP earned today in the learner's time zone; compare with daily_goal_xp."
     )
-    lessons_completed: int = Field(description="Lessons finished so far, across all courses.")
+    lessons_completed: int = Field(
+        description="Lessons and practice sessions finished so far, across all courses."
+    )
     gems: int
     hearts: HeartsOut
     streak: StreakOut
+
+
+class DailyXpOut(BaseModel):
+    day: date = Field(description="A calendar day in the learner's time zone.")
+    xp: int
 
 
 def known_timezone(value: str) -> str:

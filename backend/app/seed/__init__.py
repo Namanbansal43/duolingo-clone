@@ -25,6 +25,7 @@ from app.models import (
     XpSource,
 )
 from app.seed import data, spanish
+from app.services.achievements import unlock_achievements
 from app.services.rules import LESSON_XP, STARTING_GEMS
 from app.services.streak import local_date
 
@@ -35,7 +36,10 @@ def seed_database(db: Session, *, default_username: str, now: datetime) -> None:
     _seed_courses(db)
     _seed_spanish_content(db)
     _seed_achievements(db)
-    _seed_default_learner(db, default_username, now)
+    learner = _seed_default_learner(db, default_username, now)
+    # Award the levels the learner's progress already reaches: the demo history earns the first levels
+    # of Wildfire (a 3 day streak) and Sharpshooter (3 lessons without a mistake).
+    unlock_achievements(db, learner, now)
     db.commit()
 
 
@@ -174,7 +178,7 @@ def _seed_achievements(db: Session) -> None:
     db.flush()
 
 
-def _seed_default_learner(db: Session, username: str, now: datetime) -> None:
+def _seed_default_learner(db: Session, username: str, now: datetime) -> User:
     learner = db.scalar(select(User).where(User.username == username))
     if learner is None:
         course = db.scalar(
@@ -196,6 +200,7 @@ def _seed_default_learner(db: Session, username: str, now: datetime) -> None:
         _seed_demo_history(db, learner, now)
     if learner.settings is None:
         learner.settings = UserSettings()
+    return learner
 
 
 def _seed_demo_history(db: Session, learner: User, now: datetime) -> None:

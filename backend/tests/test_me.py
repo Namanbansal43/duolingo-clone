@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.main import create_app
-from app.models import Achievement, LessonSession, User, UserAchievement, UserSkillProgress, XpEvent
+from app.models import LessonSession, User, UserAchievement, UserSkillProgress, XpEvent
 from app.services.rules import STARTING_GEMS
 from tests.conftest import NOW, FixedClock
 
@@ -134,11 +134,10 @@ def get_started(client: TestClient, **overrides: object) -> dict:
 
 
 def test_get_started_begins_a_new_learner(client: TestClient, db: Session, learner: User) -> None:
-    # On top of the seeded history: spent hearts and gems, a streak freeze and an achievement.
+    # On top of the seeded history and achievements: spent hearts and gems, and a streak freeze.
     learner.hearts, learner.gems, learner.streak_freezes = 2, 120, 1
-    first_achievement = db.scalars(select(Achievement).order_by(Achievement.position)).first()
-    db.add(UserAchievement(user_id=learner.id, achievement_id=first_achievement.id, tier=1, unlocked_at=NOW))
     db.commit()
+    assert db.scalar(select(func.count()).select_from(UserAchievement)) > 0
 
     response = client.post("/api/v1/me/onboarding", json=get_started(client))
 
@@ -151,6 +150,7 @@ def test_get_started_begins_a_new_learner(client: TestClient, db: Session, learn
     assert me["hearts"] == {"current": 5, "max": 5, "next_heart_at": None, "regen_minutes": 30}
     assert me["streak"] == {"length": 0, "extended_today": False, "longest": 0}
     assert client.get("/api/v1/me").json() == me
+    assert {a["level"] for a in client.get("/api/v1/me/achievements").json()} == {0}
 
     path = client.get(f"/api/v1/courses/{me['active_course']['id']}/path").json()
     nodes = [node for unit in path["units"] for node in unit["nodes"]]

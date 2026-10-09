@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Response, status
 
-from app.api.v1.views import hearts_out, regen_every
+from app.api.v1.views import achievement_out, hearts_out, regen_every
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.errors import error_response
@@ -115,7 +115,7 @@ def complete_session(
     session_id: int, user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep
 ) -> CompletionOut:
     """Finish a session: award XP, extend the streak, and move the path node on (a lesson) or give back
-    a heart (practice)."""
+    a heart (practice). Lists any achievements that went up a level."""
     session = service.get_session(db, user, session_id)
     done = service.complete_session(db, user, session, clock.now(), regen_every(settings))
     return CompletionOut(
@@ -135,6 +135,7 @@ def complete_session(
             lessons_total=done.lessons_total,
             completed=done.node_completed,
         ),
+        achievements=[achievement_out(progress) for progress in done.achievements],
     )
 
 
