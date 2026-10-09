@@ -80,10 +80,13 @@ own onboarding and measured against it at 1280×800:
    and 50 XP, and so does this app. The choices are native radio buttons, so arrow keys and Enter work.
 
 Nothing is saved until the last CONTINUE, which sends one `POST /api/v1/me/onboarding` with the course, the daily
-goal and the browser's time zone (so streak days follow the learner's own midnight), then opens `/learn`. Signing
-up means a new account, so the learner starts over: their history and stats are cleared, and the path begins at
-its first node. "I already have an account" goes straight to `/learn` and keeps the learner as they are, since the
-learner is always logged in.
+goal and the browser's time zone (so streak days follow the learner's own midnight), then opens `/learn`. Like a
+new visitor on duolingo.com, the learner starts over as a **guest**: their history and stats are cleared, the path
+begins at its first node, and they have no profile yet. As on duolingo.com, a guest sees a "Create a profile to
+save your progress!" card in the right rail, and Profile shows that prompt instead of a profile. Its CREATE A
+PROFILE and SIGN IN buttons are "coming soon" (see [the logged-in learner](#the-logged-in-learner)). "I already
+have an account" goes straight to `/learn` and keeps the learner as they are, since the learner is always logged
+in.
 
 Duolingo's flow also asks how you heard about it, why you are learning, how much you already know, and for
 notification permission. Those screens are left out: nothing in this app would use the answers.
@@ -165,6 +168,8 @@ achievement's next level).
   "View all" opens `/profile/achievements`, which lists each one with its level, a progress bar ("3/7") and the
   next goal. Both read `GET /api/v1/me/achievements`.
 - **Right rail**: the stats bar and a Following / Followers card with Duolingo's empty states.
+- **Guests**: after "Get started" there is no profile yet, so `/profile` and "View all" show "Create a profile to
+  save your progress!" with CREATE A PROFILE and SIGN IN ("coming soon") instead.
 
 **Where XP shows.** The brief lists XP in the top bar, but duolingo.com's top bar has only the flag, streak, gems
 and hearts. To keep that bar identical, total XP is on the profile, today's XP is in the Daily Quests card on
@@ -186,7 +191,7 @@ and hearts. To keep that bar identical, total XP is on the profile, today's XP i
 | Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes) | `backend/app/models/learner.py` |
 | Leaderboards | Open after 10 finished lessons | `frontend/src/components/app/right-rail.tsx` |
 | Achievements | Wildfire: longest streak of 3, 7, 14 ... 365 days (10 levels). Sage: 100, 250, 500 ... 30,000 XP (10 levels). Scholar: 5, 10, 25, 50 lessons. Sharpshooter: 3, 10, 25, 50 lessons without a mistake. Practice sessions count as lessons. Levels are checked when a session finishes and are never lost | `backend/app/seed/data.py`, `backend/app/services/achievements.py` |
-| New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak | `backend/app/services/learner.py` |
+| New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak, as a guest without a profile | `backend/app/services/learner.py` |
 
 ### Demo data
 
@@ -195,8 +200,8 @@ finished, "Introduce yourself" at lesson 2 of 2, and the rest locked. Behind tha
 days before the database was first seeded: sessions, XP events, 30 XP and a 3-day streak that today's first lesson
 extends. Those lessons have already earned level 1 of Wildfire (3-day streak) and Sharpshooter (3 lessons
 without a mistake); two more sessions, practice included, unlock Scholar. This is the learner that "I already
-have an account" opens. Finishing "Get started" replaces them
-with a brand-new learner at the first node; `python -m app.seed --reset` restores this starting point.
+have an account" opens. Finishing "Get started" replaces them with a brand-new guest at the first node;
+`python -m app.seed --reset` restores this starting point, profile included.
 
 The seed only ever adds what is missing, so it never rewrites content a database already has. After the course
 content changes (the lesson player step trimmed each lesson node to 2 lessons), reset an existing database with
@@ -213,6 +218,10 @@ The brief asks us to assume a logged-in user, so there is no sign-up or login. T
 (`alex`), and every API request acts as them: the `get_current_user` dependency in `backend/app/deps.py` is the
 only code that decides who "me" is. Adding real authentication would mean replacing that one function.
 
+"Get started" doesn't create a second learner either: it starts this one over as a guest (`users.is_guest`), who
+is asked to create a profile, as on duolingo.com. Creating a profile and signing in are "coming soon", so a guest
+stays a guest until the database is reset.
+
 On a shared demo deployment, every visitor therefore sees and changes the same learner.
 
 ## API
@@ -222,7 +231,7 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | GET | `/api/health` | Liveness check, including the database |
 | GET | `/api/v1/me` | The learner with live stats: hearts after regeneration, streak and XP as of today |
 | PATCH | `/api/v1/me` | Set the active course, daily goal (10/20/30/50 XP) or time zone, keeping progress |
-| POST | `/api/v1/me/onboarding` | Finish "Get started": the learner starts over with the chosen course, goal and time zone |
+| POST | `/api/v1/me/onboarding` | Finish "Get started": the learner starts over as a guest with the chosen course, goal and time zone |
 | GET | `/api/v1/courses` | All courses in display order with learner counts; only Spanish is available |
 | GET | `/api/v1/courses/{course_id}/path` | The course's units and nodes, each completed, active or locked |
 | POST | `/api/v1/skills/{skill_id}/open-chest` | Open the treasure chest the learner has reached (+20 gems) |

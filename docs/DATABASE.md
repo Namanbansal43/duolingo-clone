@@ -92,6 +92,7 @@ erDiagram
         string display_name
         datetime created_at
         string timezone
+        bool is_guest "after Get started, until a profile exists"
         int active_course_id FK
         int daily_goal_xp "10 | 20 | 30 | 50"
         int total_xp
@@ -196,7 +197,7 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | A learner | Their settings, progress, sessions, answers, XP and unlocks go too (`CASCADE`) | Nothing of theirs is useful without them |
 | A course someone is studying | Their `active_course_id` becomes NULL (`SET NULL`) | The learner stays |
 | A lesson session | Its XP stays, with `session_id` set to NULL (`SET NULL`) | XP already earned is kept |
-| A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events and unlocks are deleted; the `users` row is reset, settings kept | Signing up means a new account, and there is one built-in learner |
+| A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events and unlocks are deleted; the `users` row is reset and marked `is_guest`, settings kept | They start over as a new visitor, and there is one built-in learner |
 
 ## How the six exercise types are stored
 
@@ -271,6 +272,7 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | `0002` | The other 14 tables, and `users.streak_freezes` |
 | `0003` | `review` path nodes (the trophy that ends each unit): widens the `skills.kind` CHECK |
 | `0004` | `listen` exercises ("Tap what you hear"): widens the `exercises.type` CHECK |
+| `0005` | `users.is_guest`: set when "Get started" starts the learner over, so the profile page asks them to create a profile; existing learners keep theirs (`false`) |
 
 Migrations run automatically when the API starts. On SQLite, Alembic changes a table by rebuilding it: copy,
 drop the original, rename. With foreign keys on, SQLite would treat that drop as deleting every row and cascade

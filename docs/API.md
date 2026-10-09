@@ -18,7 +18,7 @@ examples show a learner partway through Unit 1.
 | GET | [`/api/health`](#get-apihealth) | Liveness check, including the database |
 | GET | [`/api/v1/me`](#get-apiv1me) | The logged-in learner with live stats |
 | PATCH | [`/api/v1/me`](#patch-apiv1me) | Change the learner's course, daily goal or time zone |
-| POST | [`/api/v1/me/onboarding`](#post-apiv1meonboarding) | Finish "Get started": the learner starts over |
+| POST | [`/api/v1/me/onboarding`](#post-apiv1meonboarding) | Finish "Get started": the learner starts over as a guest |
 | GET | [`/api/v1/courses`](#get-apiv1courses) | The course catalogue |
 | GET | [`/api/v1/courses/{course_id}/path`](#get-apiv1coursescourse_idpath) | A course's learning path with the learner's progress |
 | POST | [`/api/v1/skills/{skill_id}/open-chest`](#post-apiv1skillsskill_idopen-chest) | Open a treasure chest on the path |
@@ -130,6 +130,7 @@ The learner, with stats as they are right now.
 | `display_name` | string | Name shown in the app |
 | `joined_at` | datetime | When the learner signed up: when the database was seeded, or when they last finished "Get started" |
 | `timezone` | string | IANA time zone, e.g. `Asia/Kolkata`. Decides when the learner's day starts. |
+| `is_guest` | boolean | `true` after "Get started": the learner has no profile yet, so the profile page asks them to create one (as duolingo.com does for guests) |
 | `active_course` | [Course](#course) or null | The course being studied |
 | `daily_goal_xp` | integer | XP per day: `10` Casual, `20` Regular, `30` Serious, `50` Intense |
 | `total_xp` | integer | All XP ever earned |
@@ -315,6 +316,7 @@ daily goal and the profile.
   "display_name": "Alex",
   "joined_at": "2026-10-05T12:00:00Z",
   "timezone": "UTC",
+  "is_guest": false,
   "active_course": {
     "id": 1,
     "learning_language": "es",
@@ -391,6 +393,7 @@ and returns the learner unchanged.
   "display_name": "Alex",
   "joined_at": "2026-10-05T12:00:00Z",
   "timezone": "Asia/Kolkata",
+  "is_guest": false,
   "active_course": {
     "id": 1,
     "learning_language": "es",
@@ -487,8 +490,9 @@ curl -X PATCH http://localhost:8000/api/v1/me \
 
 ## POST /api/v1/me/onboarding
 
-Finishes the "Get started" flow. Signing up means a new account, so the learner starts over and their path begins
-again at its first node. The brief has a single built-in learner, so this resets that learner:
+Finishes the "Get started" flow. Like a new visitor on duolingo.com, the learner starts over as a guest, with no
+profile yet, and their path begins again at its first node. The brief has a single built-in learner, so this
+resets that learner:
 
 | What | Becomes |
 | --- | --- |
@@ -497,6 +501,7 @@ again at its first node. The brief has a single built-in learner, so this resets
 | Hearts | Full |
 | Gems | 500, a new learner's balance |
 | `joined_at` | Now |
+| `is_guest` | `true`: the profile page asks them to create a profile ("coming soon") |
 | Course, daily goal, time zone | The values sent |
 
 The username, display name and settings-page preferences are kept. If the request is refused (any error below),
@@ -529,6 +534,7 @@ node `locked`, with `active_node_id` pointing at the first node.
   "display_name": "Alex",
   "joined_at": "2026-10-08T12:00:00Z",
   "timezone": "Asia/Kolkata",
+  "is_guest": true,
   "active_course": {
     "id": 1,
     "learning_language": "es",
