@@ -98,7 +98,7 @@ def test_the_active_node_plays_its_next_lesson(client: TestClient) -> None:
     assert client.get("/api/v1/sessions/current").json() == played
 
 
-def test_completed_nodes_are_practised(client: TestClient) -> None:
+def test_completed_nodes_are_practiced(client: TestClient) -> None:
     say_hello = nodes(client)[0]
     assert start(client, say_hello["id"])["mode"] == "practice"
 

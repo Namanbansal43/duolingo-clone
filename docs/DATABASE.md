@@ -68,7 +68,7 @@ erDiagram
         int id PK
         int lesson_id FK, UK "unique with position"
         int position UK
-        string type "one of the 5 exercise types"
+        string type "one of the 6 exercise types"
         text prompt "required unless match_pairs"
         string prompt_language
     }
@@ -198,7 +198,7 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | A lesson session | Its XP stays, with `session_id` set to NULL (`SET NULL`) | XP already earned is kept |
 | A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events and unlocks are deleted; the `users` row is reset, settings kept | Signing up means a new account, and there is one built-in learner |
 
-## How the five exercise types are stored
+## How the six exercise types are stored
 
 | Type | `exercises.prompt` | `exercise_options` | `accepted_answers` |
 | --- | --- | --- | --- |
@@ -207,9 +207,13 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | Word bank | Sentence to translate | Word tiles, distractors included | The correct sentence(s) |
 | Type answer | Sentence to translate | — | Every accepted translation |
 | Match pairs | — | One row per pair: `text` ↔ `match_text` | — |
+| Listen ("Tap what you hear") | The Spanish sentence, read aloud | Its words plus distractors, as tiles | The sentence |
 
 Options and answers live in their own tables rather than a JSON blob per exercise. That lets the database
 enforce "one correct option", and lets the server grade answers without ever sending them to the browser.
+
+Every attempt is a `session_answers` row: wrong answers (and SKIP) too, and match pairs one pair at a time,
+since a wrong pair costs a heart. A session's accuracy and "which exercises are done" are read from these rows.
 
 ## Derived on read, never stored
 
@@ -248,10 +252,10 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | What | Details |
 | --- | --- |
 | Courses | 39 courses taught in English, in duolingo.com's order; only Spanish is available |
-| Spanish content | 3 units, each with 5 path nodes: two lesson nodes, a treasure chest, a lesson node, and a unit review (15 nodes, 33 lessons). Defined as data in `backend/app/seed/spanish.py`. |
+| Spanish content | 3 units, each with 5 path nodes: two lesson nodes, a treasure chest, a lesson node, and a unit review (15 nodes). Lesson nodes have 2 lessons and reviews 1 (21 lessons). Unit 1 is playable: each of its 7 lessons has one exercise of every type (42 exercises). Units 2 and 3 have no exercises yet, so their lessons show "coming soon". Defined as data in `backend/app/seed/spanish.py`. |
 | Achievements | Wildfire (streak), Sage (XP), Scholar (lessons) and Sharpshooter (perfect lessons), 4 tiers each |
 | The built-in learner | `alex`, studying Spanish with a 20 XP daily goal and 500 gems |
-| Their history | 4 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. Finishing "Get started" clears it. |
+| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. Finishing "Get started" clears it. |
 
 ## Migrations
 
@@ -260,6 +264,7 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | `0001` | `courses`, `users` |
 | `0002` | The other 14 tables, and `users.streak_freezes` |
 | `0003` | `review` path nodes (the trophy that ends each unit): widens the `skills.kind` CHECK |
+| `0004` | `listen` exercises ("Tap what you hear"): widens the `exercises.type` CHECK |
 
 Migrations run automatically when the API starts. On SQLite, Alembic changes a table by rebuilding it: copy,
 drop the original, rename. With foreign keys on, SQLite would treat that drop as deleting every row and cascade

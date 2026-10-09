@@ -2,7 +2,7 @@
 
 The backend is a FastAPI app. Every endpoint, request and response is listed below; every example is a real
 response from the API, captured on a freshly seeded database with the clock fixed at `2026-10-08T12:00:00Z`.
-The seed gives the built-in learner a few days of history (4 lessons finished on the 3 days before), so the
+The seed gives the built-in learner a few days of history (3 lessons finished on the 3 days before), so the
 examples show a learner partway through Unit 1.
 
 | | |
@@ -22,6 +22,13 @@ examples show a learner partway through Unit 1.
 | GET | [`/api/v1/courses`](#get-apiv1courses) | The course catalogue |
 | GET | [`/api/v1/courses/{course_id}/path`](#get-apiv1coursescourse_idpath) | A course's learning path with the learner's progress |
 | POST | [`/api/v1/skills/{skill_id}/open-chest`](#post-apiv1skillsskill_idopen-chest) | Open a treasure chest on the path |
+| POST | [`/api/v1/me/hearts/refill`](#post-apiv1meheartsrefill) | Refill hearts for 350 gems |
+| POST | [`/api/v1/sessions`](#post-apiv1sessions) | Start a lesson, or practice a finished node |
+| GET | [`/api/v1/sessions/current`](#get-apiv1sessionscurrent) | The session in progress |
+| GET | [`/api/v1/sessions/{session_id}`](#get-apiv1sessionssession_id) | One session |
+| POST | [`/api/v1/sessions/{session_id}/answers`](#post-apiv1sessionssession_idanswers) | Answer one exercise; graded on the server |
+| POST | [`/api/v1/sessions/{session_id}/complete`](#post-apiv1sessionssession_idcomplete) | Finish the session: XP, streak, path progress |
+| POST | [`/api/v1/sessions/{session_id}/quit`](#post-apiv1sessionssession_idquit) | Leave a session early |
 
 ## Conventions
 
@@ -59,13 +66,24 @@ All error codes the API returns today:
 | --- | --- | --- | --- |
 | 404 | `not_found` | The path doesn't exist | Any URL |
 | 404 | `course_not_found` | No course has that id | `PATCH /api/v1/me`, `POST .../me/onboarding`, `GET .../courses/{id}/path` |
-| 404 | `skill_not_found` | No path node has that id | `POST .../skills/{id}/open-chest` |
+| 404 | `skill_not_found` | No path node has that id | `POST .../skills/{id}/open-chest`, `POST /api/v1/sessions` |
+| 404 | `session_not_found` | No session of this learner has that id, or (for `current`) none is in progress | `/api/v1/sessions/...` |
+| 404 | `exercise_not_found` | The exercise isn't part of the session | `POST .../sessions/{id}/answers` |
 | 405 | `method_not_allowed` | The path exists but not with this method | Any URL |
 | 409 | `course_unavailable` | The course exists but is "coming soon" | `PATCH /api/v1/me`, `POST .../me/onboarding`, `GET .../courses/{id}/path` |
 | 409 | `not_a_chest` | The path node isn't a treasure chest | `POST .../skills/{id}/open-chest` |
-| 409 | `skill_locked` | The chest hasn't been reached yet | `POST .../skills/{id}/open-chest` |
+| 409 | `skill_locked` | The node hasn't been reached yet | `POST .../skills/{id}/open-chest`, `POST /api/v1/sessions` |
+| 409 | `not_a_lesson` | The node is a treasure chest: it is opened, not played | `POST /api/v1/sessions` |
+| 409 | `lesson_unavailable` | The lesson has no exercises yet (Units 2 and 3) | `POST /api/v1/sessions` |
+| 409 | `out_of_hearts` | No hearts left, and a lesson needs one | `POST /api/v1/sessions`, `POST .../answers` |
+| 409 | `session_finished` | The session already ended | `POST .../answers`, `.../complete`, `.../quit` |
+| 409 | `exercise_completed` | That exercise was already answered correctly | `POST .../answers` |
+| 409 | `session_incomplete` | Exercises are left to answer | `POST .../complete` |
+| 409 | `hearts_full` | Hearts are already full | `POST /api/v1/me/hearts/refill` |
+| 409 | `not_enough_gems` | Fewer than 350 gems | `POST /api/v1/me/hearts/refill` |
 | 409 | `chest_already_opened` | The chest was opened before | `POST .../skills/{id}/open-chest` |
-| 422 | `validation_error` | The body is not valid JSON, misses a required field, has an invalid value or an unknown field, or an id in the URL isn't a whole number | `PATCH /api/v1/me`, `POST .../me/onboarding`, endpoints with an id in the URL |
+| 422 | `validation_error` | The body is not valid JSON, misses a required field, has an invalid value or an unknown field, or an id in the URL isn't a whole number | Every endpoint with a body or an id in the URL |
+| 422 | `invalid_answer` | The answer uses the wrong field for the exercise type, or options that aren't the exercise's | `POST .../sessions/{id}/answers` |
 | 500 | `internal_error` | An unexpected server error (the details are logged on the server, never sent) | Any endpoint |
 | 503 | `learner_missing` | The database has not been seeded with the built-in learner | Every endpoint that acts as the learner |
 
@@ -173,6 +191,59 @@ Nodes unlock strictly in order: everything before the first unfinished node is `
 `active`, and everything after it is `locked`, across unit boundaries too. Only completion is stored; the states
 are worked out on every request, so they can never contradict each other.
 
+### Session
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | integer | Session id |
+| `mode` | string | `lesson` (the active node's next lesson) or `practice` (a finished node: no hearts lost) |
+| `status` | string | `in_progress`, `completed`, `failed` (quit with no hearts left) or `abandoned` |
+| `started_at` | datetime | When it started |
+| `node` | object | The path node: `{"id", "title"}` |
+| `lesson_position` | integer | Which lesson of the node this is, from 1 |
+| `lessons_total` | integer | Lessons in the node |
+| `exercises` | [Exercise](#exercise)[] | In order |
+| `completed_exercise_ids` | integer[] | Exercises already answered correctly, so a reload can carry on |
+| `hearts` | [Hearts](#hearts) | The learner's hearts right now |
+
+### Exercise
+
+Sent without its solution: which option is right, and the accepted answers, stay on the server.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | integer | Exercise id |
+| `type` | string | `multiple_choice`, `word_bank`, `match_pairs`, `fill_blank`, `type_answer` or `listen` |
+| `instruction` | string | The heading, e.g. "Write this in English" |
+| `prompt` | string or null | The word or sentence to work on; contains `___` for `fill_blank`; null for `match_pairs`. For `listen` it is the sentence read aloud (the browser's text-to-speech needs the text) |
+| `prompt_language` | string or null | `es` or `en` |
+| `options` | object[] | `{"id", "text"}`: the choices (`multiple_choice`, `fill_blank`) or word tiles (`word_bank`, `listen`), shuffled. Empty otherwise |
+| `pairs` | object or null | `match_pairs` only: `{"left": [English], "right": [Spanish]}`, each shuffled |
+
+Shuffled lists keep the same order for the whole session, so a reload doesn't move them.
+
+### Answer result
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `correct` | boolean | Whether the answer counts |
+| `verdict` | string | `correct`; `other_solution` (right, but the main translation differs); `typo` (right apart from one slip or a missing accent); `wrong` |
+| `solution` | string or null | What the feedback bar shows under its heading: the correct solution (`wrong`), the main translation (`other_solution`) or the right spelling (`typo`) |
+| `exercise_completed` | boolean | False only for `match_pairs` while pairs are left |
+| `hearts` | [Hearts](#hearts) | After this answer |
+
+### Completion
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `xp_earned` | integer | 10 for a lesson, 5 for practice |
+| `total_xp`, `xp_today`, `daily_goal_xp` | integer | Totals after this session, for the daily goal |
+| `accuracy` | integer | Percent of exercises answered right the first time |
+| `duration_seconds` | integer | From start to finish |
+| `streak` | object | `{"length", "longest", "extended"}`; `extended` is true when this was today's first finished session |
+| `hearts` | [Hearts](#hearts) | After this session (practice gives one back) |
+| `node` | object | `{"id", "lessons_completed", "lessons_total", "completed"}`: the path node's progress |
+
 ---
 
 ## GET /api/health
@@ -226,9 +297,9 @@ daily goal and the profile.
     "is_available": true
   },
   "daily_goal_xp": 20,
-  "total_xp": 40,
+  "total_xp": 30,
   "xp_today": 0,
-  "lessons_completed": 4,
+  "lessons_completed": 3,
   "gems": 500,
   "hearts": {
     "current": 5,
@@ -302,9 +373,9 @@ and returns the learner unchanged.
     "is_available": true
   },
   "daily_goal_xp": 30,
-  "total_xp": 40,
+  "total_xp": 30,
   "xp_today": 0,
-  "lessons_completed": 4,
+  "lessons_completed": 3,
   "gems": 500,
   "hearts": {
     "current": 5,
@@ -496,6 +567,29 @@ curl -X POST http://localhost:8000/api/v1/me/onboarding \
 
 ---
 
+## POST /api/v1/me/hearts/refill
+
+Refills hearts to full for 350 gems. Purchases are mocked: gems come from chests and the starting balance,
+never from money. The out-of-hearts screen offers this.
+
+**Request:** no body.
+
+**Response `200 OK`:** the learner as a [Me](#me) object, with full hearts and 350 gems fewer (here 500 → 150).
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 409 | `hearts_full` | `{"error": {"code": "hearts_full", "message": "Your hearts are already full."}}` |
+| 409 | `not_enough_gems` | The learner has fewer than 350 gems |
+| 503 | `learner_missing` | The database has not been seeded |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/me/hearts/refill
+```
+
+---
+
 ## GET /api/v1/courses
 
 Every course in display order, the same order as the course strip on the landing page, with how many learners
@@ -568,11 +662,11 @@ The course's learning path, with the learner's progress: every unit, its nodes, 
       "position": 1,
       "title": "Greet people and introduce yourself",
       "nodes": [
-        { "id": 1, "position": 1, "title": "Say hello", "kind": "lesson", "state": "completed", "lessons_total": 3, "lessons_completed": 3 },
-        { "id": 2, "position": 2, "title": "Introduce yourself", "kind": "lesson", "state": "active", "lessons_total": 3, "lessons_completed": 1 },
+        { "id": 1, "position": 1, "title": "Say hello", "kind": "lesson", "state": "completed", "lessons_total": 2, "lessons_completed": 2 },
+        { "id": 2, "position": 2, "title": "Introduce yourself", "kind": "lesson", "state": "active", "lessons_total": 2, "lessons_completed": 1 },
         { "id": 3, "position": 3, "title": "Treasure chest", "kind": "chest", "state": "locked", "lessons_total": 0, "lessons_completed": 0 },
-        { "id": 4, "position": 4, "title": "Meet people", "kind": "lesson", "state": "locked", "lessons_total": 3, "lessons_completed": 0 },
-        { "id": 5, "position": 5, "title": "Unit review", "kind": "review", "state": "locked", "lessons_total": 2, "lessons_completed": 0 }
+        { "id": 4, "position": 4, "title": "Meet people", "kind": "lesson", "state": "locked", "lessons_total": 2, "lessons_completed": 0 },
+        { "id": 5, "position": 5, "title": "Unit review", "kind": "review", "state": "locked", "lessons_total": 1, "lessons_completed": 0 }
       ]
     }
   ],
@@ -630,3 +724,228 @@ Opens the treasure chest the learner has reached (the chest node whose `state` i
 ```bash
 curl -X POST http://localhost:8000/api/v1/skills/3/open-chest
 ```
+
+---
+
+## POST /api/v1/sessions
+
+Starts the next lesson of a path node. The server decides the rest:
+
+- The **active** node plays its next lesson (`mode: "lesson"`): a wrong answer costs a heart, and the
+  learner needs at least one heart to start.
+- A **completed** node is practiced (`mode: "practice"`): its lessons in turn, no hearts at stake.
+- Any other unfinished session of the learner is abandoned, so there is at most one in progress.
+
+**Request body**
+
+```json
+{ "skill_id": 2 }
+```
+
+**Response `201 Created`:** a [Session](#session). For the seeded learner, lesson 2 of "Introduce yourself":
+
+```json
+{
+  "id": 4,
+  "mode": "lesson",
+  "status": "in_progress",
+  "started_at": "2026-10-08T12:00:00Z",
+  "node": {
+    "id": 2,
+    "title": "Introduce yourself"
+  },
+  "lesson_position": 2,
+  "lessons_total": 2,
+  "exercises": [
+    {"id": 19, "type": "multiple_choice", "instruction": "Select the correct meaning", "prompt": "mucho gusto", "prompt_language": "es", "options": [{"id": 63, "text": "thank you"}, {"id": 61, "text": "nice to meet you"}, {"id": 62, "text": "good night"}], "pairs": null},
+    {"id": 20, "type": "match_pairs", "instruction": "Select the matching pairs", "prompt": null, "prompt_language": null, "options": [], "pairs": {"left": ["my name is", "and you?", "goodbye", "nice to meet you"], "right": ["adiós", "me llamo", "mucho gusto", "¿y tú?"]}},
+    {"id": 21, "type": "word_bank", "instruction": "Write this in Spanish", "prompt": "What is your name?", "prompt_language": "en", "options": [{"id": 69, "text": "te"}, {"id": 68, "text": "Cómo"}, {"id": 70, "text": "llamas"}, {"id": 72, "text": "yo"}, {"id": 71, "text": "soy"}], "pairs": null},
+    {"id": 22, "type": "fill_blank", "instruction": "Fill in the blank", "prompt": "Me ___ Ana.", "prompt_language": "es", "options": [{"id": 75, "text": "gusto"}, {"id": 73, "text": "llamo"}, {"id": 74, "text": "soy"}], "pairs": null},
+    {"id": 23, "type": "type_answer", "instruction": "Write this in Spanish", "prompt": "Nice to meet you.", "prompt_language": "en", "options": [], "pairs": null},
+    {"id": 24, "type": "listen", "instruction": "Tap what you hear", "prompt": "Mucho gusto, Ana.", "prompt_language": "es", "options": [{"id": 79, "text": "soy"}, {"id": 78, "text": "Ana"}, {"id": 77, "text": "gusto"}, {"id": 76, "text": "Mucho"}, {"id": 80, "text": "noches"}], "pairs": null}
+  ],
+  "completed_exercise_ids": [],
+  "hearts": {
+    "current": 5,
+    "max": 5,
+    "next_heart_at": null,
+    "regen_minutes": 30
+  }
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 404 | `skill_not_found` | No path node has that id |
+| 409 | `skill_locked` | `{"error": {"code": "skill_locked", "message": "Complete the levels above to unlock this."}}` |
+| 409 | `not_a_lesson` | `{"error": {"code": "not_a_lesson", "message": "Treasure chests are opened, not played."}}` |
+| 409 | `lesson_unavailable` | The lesson has no exercises yet: Units 2 and 3 are "coming soon" |
+| 409 | `out_of_hearts` | A lesson needs at least one heart (practice doesn't) |
+| 422 | `validation_error` | `skill_id` is missing or not a whole number |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/sessions -H "Content-Type: application/json" -d '{"skill_id": 2}'
+```
+
+---
+
+## GET /api/v1/sessions/current
+
+The session in progress, as a [Session](#session). The lesson page plays this one, so a refresh carries on where
+it was: `completed_exercise_ids` lists what has been answered.
+
+**Errors:** `404 session_not_found` when nothing is in progress:
+`{"error": {"code": "session_not_found", "message": "No lesson is in progress."}}`
+
+---
+
+## GET /api/v1/sessions/{session_id}
+
+One of the learner's sessions, in progress or not, as a [Session](#session).
+
+**Errors:** `404 session_not_found`; `422 validation_error` for an id that isn't a whole number.
+
+---
+
+## POST /api/v1/sessions/{session_id}/answers
+
+Grades one answer on the server and returns an [Answer result](#answer-result). Every attempt is stored in
+`session_answers`. In a lesson, a wrong answer (or SKIP) costs a heart; a wrong answer can be tried again later
+in the same session, so the client puts the exercise back at the end of the lesson.
+
+**Request body:** `exercise_id`, plus the field for the exercise type:
+
+| Type | Field | Example |
+| --- | --- | --- |
+| `multiple_choice`, `fill_blank` | `option_ids`: the chosen option | `{"exercise_id": 19, "option_ids": [61]}` |
+| `word_bank`, `listen` | `option_ids`: the tiles, in order | `{"exercise_id": 21, "option_ids": [68, 69, 70]}` |
+| `type_answer` | `text` | `{"exercise_id": 23, "text": "mucho gsto"}` |
+| `match_pairs` | `pair`: one attempt, `[left tile, right tile]` | `{"exercise_id": 20, "pair": ["nice to meet you", "mucho gusto"]}` |
+| any | `skipped: true` (SKIP) | `{"exercise_id": 22, "skipped": true}` |
+
+Grading ignores case, punctuation (including ¿ and ¡) and spacing. Typed answers also forgive one wrong,
+missing or extra letter, or a missing accent (`verdict: "typo"`). Match pairs are graded pair by pair, and a
+wrong pair costs a heart, as on Duolingo; the exercise is done when every pair has been matched.
+
+**Response `200 OK`:** an [Answer result](#answer-result). A wrong choice:
+
+```json
+{
+  "correct": false,
+  "verdict": "wrong",
+  "solution": "nice to meet you",
+  "exercise_completed": false,
+  "hearts": {
+    "current": 4,
+    "max": 5,
+    "next_heart_at": "2026-10-08T12:30:00Z",
+    "regen_minutes": 30
+  }
+}
+```
+
+A typed answer with a typo ("mucho gsto" for "Mucho gusto."):
+
+```json
+{
+  "correct": true,
+  "verdict": "typo",
+  "solution": "Mucho gusto.",
+  "exercise_completed": true,
+  "hearts": {
+    "current": 4,
+    "max": 5,
+    "next_heart_at": "2026-10-08T12:30:00Z",
+    "regen_minutes": 30
+  }
+}
+```
+
+The first of four pairs (`exercise_completed` turns true with the last):
+
+```json
+{
+  "correct": true,
+  "verdict": "correct",
+  "solution": null,
+  "exercise_completed": false,
+  "hearts": {
+    "current": 4,
+    "max": 5,
+    "next_heart_at": "2026-10-08T12:30:00Z",
+    "regen_minutes": 30
+  }
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 404 | `session_not_found`, `exercise_not_found` | Unknown session, or an exercise of another lesson |
+| 409 | `session_finished` | The session already ended |
+| 409 | `exercise_completed` | That exercise was already answered correctly |
+| 409 | `out_of_hearts` | No hearts left in a lesson: refill or practice first |
+| 422 | `invalid_answer` | `{"error": {"code": "invalid_answer", "message": "Send the chosen options as option_ids."}}` (text sent for a multiple choice) |
+
+---
+
+## POST /api/v1/sessions/{session_id}/complete
+
+Finishes a session once every exercise is answered (listening exercises may be skipped with "Can't listen
+now"). It writes an XP event (10 XP for a lesson, 5 for practice), extends the streak if this is the first
+finished session of the learner's day, and then either moves the path node on (a lesson) or gives a heart back
+(practice). The node is completed with its last lesson, which unlocks the next one.
+
+**Request:** no body.
+
+**Response `200 OK`:** a [Completion](#completion). The seeded learner finishing "Introduce yourself" 2 minutes
+later, with one mistake:
+
+```json
+{
+  "xp_earned": 10,
+  "total_xp": 40,
+  "xp_today": 10,
+  "daily_goal_xp": 20,
+  "accuracy": 83,
+  "duration_seconds": 125,
+  "streak": {
+    "length": 4,
+    "longest": 4,
+    "extended": true
+  },
+  "hearts": {
+    "current": 4,
+    "max": 5,
+    "next_heart_at": "2026-10-08T12:30:00Z",
+    "regen_minutes": 30
+  },
+  "node": {
+    "id": 2,
+    "lessons_completed": 2,
+    "lessons_total": 2,
+    "completed": true
+  }
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 409 | `session_incomplete` | `{"error": {"code": "session_incomplete", "message": "Answer every exercise before finishing the lesson."}}` |
+| 409 | `session_finished` | `{"error": {"code": "session_finished", "message": "That lesson session has already ended."}}` |
+
+---
+
+## POST /api/v1/sessions/{session_id}/quit
+
+Leaves a session early ("End session", or "No thanks" when out of hearts). It counts as `failed` if a lesson ran
+out of hearts, `abandoned` otherwise. Nothing is earned or lost.
+
+**Response:** `204 No Content`.
+
+**Errors:** `404 session_not_found`; `409 session_finished`.
