@@ -40,12 +40,27 @@ def get_clock(db: DbSession, real: RealClockDep) -> Clock:
 ClockDep = Annotated[Clock, Depends(get_clock)]
 
 
-def get_current_user(db: DbSession, settings: SettingsDep) -> User:
-    """The brief assumes a logged-in learner, so every request acts as the seeded default user.
+# Set by "Get started" to the value GUEST, and cleared by signing in or resetting the demo.
+LEARNER_COOKIE = "learner"
+GUEST = "guest"
+
+
+def get_current_user(db: DbSession, settings: SettingsDep, request: Request) -> User:
+    """Who "me" is. The brief assumes a logged-in learner, so a request acts as the seeded demo learner,
+    unless this browser went through "Get started": then the `learner` cookie says it is the guest.
 
     This is the only place that decides who "me" is: real authentication would replace this
-    function (e.g. look the user up from a session cookie) and nothing else would change.
+    function (e.g. look the user up from a session token) and nothing else would change.
     """
+    if request.cookies.get(LEARNER_COOKIE) == GUEST:
+        guest = db.scalar(select(User).where(User.username == settings.guest_username))
+        if guest is not None:  # gone after a demo reset: back to the demo learner
+            return guest
+    return demo_learner(db, settings)
+
+
+def demo_learner(db: Session, settings: Settings) -> User:
+    """The seeded learner the brief assumes is logged in."""
     user = db.scalar(select(User).where(User.username == settings.default_username))
     if user is None:
         raise AppError(503, "learner_missing", "The default learner has not been seeded yet.")

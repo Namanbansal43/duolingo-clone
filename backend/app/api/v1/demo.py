@@ -1,9 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy.orm import Session
 
-from app.api.v1.views import me_out
+from app.api.v1.views import act_as_demo_learner, me_out
 from app.core.clock import Clock
-from app.deps import ClockDep, CurrentUser, DbSession, RealClockDep, SettingsDep, get_current_user
+from app.deps import ClockDep, CurrentUser, DbSession, RealClockDep, SettingsDep
 from app.schemas.demo import DemoClockOut
 from app.schemas.me import MeOut
 from app.services.demo import advance_day, app_clock, days_ahead, empty_hearts, reset_demo
@@ -34,12 +34,16 @@ def empty_my_hearts(user: CurrentUser, db: DbSession, clock: ClockDep, settings:
 
 
 @router.post("/reset", response_model=MeOut)
-def reset_the_demo(db: DbSession, real: RealClockDep, settings: SettingsDep) -> MeOut:
-    """Start the demo again: the clock returns to real time and every learner, the rivals too, goes back
-    to the seeded state (the built-in learner has a 3 day streak and is in this week's Bronze league).
-    Preferences from the settings page are kept."""
-    reset_demo(db, settings.default_username, real.now())
-    return me_out(db, get_current_user(db, settings), real, settings)
+def reset_the_demo(
+    user: CurrentUser, db: DbSession, real: RealClockDep, settings: SettingsDep, response: Response
+) -> MeOut:
+    """Start the demo again: the clock returns to real time, the guest from "Get started" is removed, and
+    the demo learner and the rivals go back to the seeded state (the demo learner has a 3 day streak and
+    is in this week's Bronze league). This browser is the demo learner afterwards (the `learner` cookie
+    is cleared). Preferences from the settings page are kept."""
+    learner = reset_demo(db, user, settings.default_username, real.now())
+    act_as_demo_learner(response)
+    return me_out(db, learner, real, settings)
 
 
 def _clock_out(db: Session, real: Clock) -> DemoClockOut:

@@ -24,6 +24,7 @@ def get_leaderboard(user: CurrentUser, db: DbSession, clock: ClockDep) -> Leader
     return LeaderboardOut(
         unlocked=board.league is not None,
         lessons_to_unlock=board.lessons_to_unlock,
+        sign_in_required=board.sign_in_required,
         leagues=[LeagueOut.model_validate(league) for league in leagues],
         league=LeagueOut.model_validate(board.league) if board.league else None,
         joined=board.joined,

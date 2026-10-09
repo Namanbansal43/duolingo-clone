@@ -33,6 +33,10 @@ class WeekResultOut(BaseModel):
 class LeaderboardOut(BaseModel):
     unlocked: bool = Field(description="Leaderboards open after 10 finished lessons (practice included).")
     lessons_to_unlock: int = Field(description="Lessons left before leaderboards open; 0 once open.")
+    sign_in_required: bool = Field(
+        description='A guest from "Get started" who has finished 10 lessons: leagues need an account, so '
+        "they are asked to sign in. Leaderboards stay locked for guests."
+    )
     leagues: list[LeagueOut] = Field(description="All ten leagues, Bronze first.")
     league: LeagueOut | None = Field(
         description="This week's league: joined, or the one the next lesson joins. Null while locked."

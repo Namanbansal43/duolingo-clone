@@ -108,6 +108,8 @@ def test_the_top_move_up_the_bottom_move_down(db: Session, league: str, rank: in
 
 def test_leaderboards_unlock_after_ten_lessons(client: TestClient, db: Session) -> None:
     client.post("/api/v1/me/onboarding", json=get_started(client))  # a new learner, with no league
+    db.scalars(select(User).where(User.username == "guest")).one().is_guest = False  # ...and a profile
+    db.commit()
     league = board(client)
     assert (league["unlocked"], league["lessons_to_unlock"], league["league"]) == (False, 10, None)
 
@@ -117,4 +119,5 @@ def test_leaderboards_unlock_after_ten_lessons(client: TestClient, db: Session) 
     assert unlocked == [False] * 9 + [True]
     league = board(client)
     assert (league["unlocked"], league["lessons_to_unlock"], league["joined"]) == (True, 0, True)
-    assert (league["league"]["name"], len(league["standings"])) == ("Bronze", 30)
+    # The rivals and the demo learner are in this week's Bronze league already.
+    assert (league["league"]["name"], len(league["standings"])) == ("Bronze", 31)

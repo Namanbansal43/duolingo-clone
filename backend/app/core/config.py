@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     # The brief assumes one logged-in learner; every request acts as this seeded user.
     default_username: str = "alex"
+    # "Get started" makes this separate guest learner, so starting over never touches the demo learner.
+    guest_username: str = "guest"
 
     # Real Duolingo refills a heart every few hours; a short interval keeps the demo testable.
     heart_regen_minutes: int = 30

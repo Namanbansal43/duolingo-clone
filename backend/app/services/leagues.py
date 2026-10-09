@@ -2,7 +2,9 @@
 
 A league week runs Monday to Sunday in the learner's time zone. Once leaderboards are unlocked, the first
 session finished in a week joins that week's league, together with the seeded rivals (they follow the
-learner from league to league: they exist to compete with them). Nothing runs on a timer: whenever the
+learner from league to league: they exist to compete with them). A guest from "Get started" never joins: as
+on duolingo.com, competing needs an account, so once they have done enough lessons they are asked to sign in.
+Nothing runs on a timer: whenever the
 leaderboard is read or joined, the rivals' XP is written up to that moment and finished weeks are ranked.
 """
 
@@ -47,6 +49,7 @@ class WeekResult:
 @dataclass(frozen=True)
 class Leaderboard:
     lessons_to_unlock: int  # 0 once unlocked
+    sign_in_required: bool  # a guest who has done enough lessons, but needs an account to compete
     league: League | None  # this week's league: joined, or the one the next session joins; None if locked
     joined: bool
     week_start: date
@@ -84,6 +87,7 @@ def leaderboard(db: Session, user: User, now: datetime) -> Leaderboard:
     unlocked_by = max(0, LEADERBOARD_UNLOCK_LESSONS - lessons_completed(db, user))
     return Leaderboard(
         lessons_to_unlock=0 if membership or latest else unlocked_by,
+        sign_in_required=user.is_guest and unlocked_by == 0,
         league=_this_weeks_league(db, user, start),
         joined=membership is not None,
         week_start=start,
@@ -199,14 +203,15 @@ def rival_sessions(rival: Rival, day: date) -> list[tuple[datetime, int]]:
 
 def _this_weeks_league(db: Session, user: User, week_start: date) -> League | None:
     """The league the learner competes in this week: the one joined, or the one their last result leads
-    to, or Bronze for a learner who has just unlocked leaderboards. None while they are locked."""
+    to, or Bronze for a learner who has just unlocked leaderboards. None while they are locked, and always
+    for a guest."""
     membership = db.get(LeagueMembership, (user.id, week_start))
     if membership is not None:
         return membership.league
     latest = _latest_settled(db, user)
     if latest is not None:
         return _result(db, latest).next_league
-    if lessons_completed(db, user) >= LEADERBOARD_UNLOCK_LESSONS:
+    if lessons_completed(db, user) >= LEADERBOARD_UNLOCK_LESSONS and not user.is_guest:
         return db.scalar(select(League).order_by(League.position))
     return None
 

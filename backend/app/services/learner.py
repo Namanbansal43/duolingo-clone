@@ -20,6 +20,11 @@ from app.schemas.settings import UserSettingsUpdate
 from app.services.hearts import live_hearts
 from app.services.rules import HEART_REFILL_GEMS, STARTING_GEMS
 
+# The choices on the settings page. They belong to the device more than to the progress, so they carry over
+# from one learner to the next ("Get started", resetting the demo).
+PREFERENCES = ("sound_effects", "animations", "motivational_messages", "listening_exercises", "dark_mode")
+GUEST_NAME = "Guest"
+
 
 def available_course(db: Session, course_id: int) -> Course:
     """The course with this id, if learners can study it; otherwise a 404 or 409 error."""
@@ -62,15 +67,38 @@ def update_settings(db: Session, user: User, changes: UserSettingsUpdate) -> Use
     return settings
 
 
-def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: datetime) -> None:
-    """Finish "Get started": the learner begins as a brand-new guest (no profile yet), at the first node of
-    the chosen course. There is one built-in learner, so this clears their history (lesson sessions and
-    their answers, XP, path progress, achievements, leagues) and resets their stats; preferences on the
-    settings page are kept. Nothing changes if the course can't be studied."""
+def preferences(db: Session, user: User) -> dict[str, object]:
+    """The learner's choices on the settings page, to carry over to another learner."""
+    settings = learner_settings(db, user)
+    return {name: getattr(settings, name) for name in PREFERENCES}
+
+
+def set_preferences(db: Session, user: User, values: dict[str, object]) -> None:
+    settings = learner_settings(db, user)
+    for name, value in values.items():
+        setattr(settings, name, value)
+
+
+def start_as_new_learner(
+    db: Session, username: str, current: User, choices: Onboarding, now: datetime
+) -> User:
+    """Finish "Get started": a brand-new guest (no profile yet) begins at the first node of the chosen
+    course. The guest is its own learner, separate from the demo learner, so the demo's progress is never
+    touched. There is one guest: the first "Get started" creates it, later ones clear its history (lesson
+    sessions and their answers, XP, path progress, achievements) and reset its stats. The current
+    learner's preferences on the settings page carry over. Nothing changes if the course can't be
+    studied."""
     course = available_course(db, choices.active_course_id)
 
+    user = db.scalar(select(User).where(User.username == username))
+    if user is None:
+        user = User(username=username, display_name=GUEST_NAME, hearts_updated_at=now, created_at=now)
+        db.add(user)
+        db.flush()
     for model in (XpEvent, LessonSession, UserSkillProgress, UserAchievement, LeagueMembership):
         db.execute(delete(model).where(model.user_id == user.id))  # answers go with their sessions
+    if user is not current:
+        set_preferences(db, user, preferences(db, current))
 
     user.created_at = now
     user.is_guest = True
@@ -85,6 +113,7 @@ def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: date
     user.last_streak_date = None
     user.streak_freezes = 0
     db.commit()
+    return user
 
 
 def refill_hearts(db: Session, user: User, now: datetime, regen_every: timedelta) -> None:

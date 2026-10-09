@@ -2,10 +2,12 @@
 
 from datetime import datetime, timedelta
 
+from fastapi import Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.clock import Clock
 from app.core.config import Settings
+from app.deps import GUEST, LEARNER_COOKIE
 from app.models import User
 from app.schemas.achievement import AchievementOut
 from app.schemas.course import CourseOut
@@ -14,6 +16,23 @@ from app.services.achievements import AchievementProgress
 from app.services.hearts import live_hearts
 from app.services.learner import lessons_completed, xp_earned_on
 from app.services.streak import local_date, streak_status
+
+
+def act_as_guest(request: Request, response: Response) -> None:
+    """From now on this browser is the guest from "Get started" (see deps.get_current_user)."""
+    response.set_cookie(
+        LEARNER_COOKIE,
+        GUEST,
+        max_age=365 * 24 * 60 * 60,
+        httponly=True,
+        samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+
+
+def act_as_demo_learner(response: Response) -> None:
+    """From now on this browser is the demo learner again."""
+    response.delete_cookie(LEARNER_COOKIE, httponly=True, samesite="lax")
 
 
 def regen_every(settings: Settings) -> timedelta:

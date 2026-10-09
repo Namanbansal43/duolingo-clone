@@ -144,6 +144,8 @@ def test_get_started_begins_a_new_learner(client: TestClient, db: Session, learn
 
     assert response.status_code == 200
     me = response.json()
+    assert (me["username"], me["display_name"]) == ("guest", "Guest")  # a learner of its own
+    assert me["id"] != learner.id
     assert me["active_course"]["title"] == "Spanish"
     assert (me["daily_goal_xp"], me["timezone"]) == (30, "Asia/Kolkata")
     assert me["joined_at"] == "2026-10-08T12:00:00Z"
@@ -160,9 +162,11 @@ def test_get_started_begins_a_new_learner(client: TestClient, db: Session, learn
     assert all(node["lessons_completed"] == 0 for node in nodes)
     assert path["active_node_id"] == nodes[0]["id"]
 
+    # The demo learner is untouched: their history, achievements and stats are all still there.
     for model in (LessonSession, XpEvent, UserSkillProgress, UserAchievement):
-        assert db.scalar(select(func.count()).select_from(model).where(model.user_id == learner.id)) == 0
-    assert db.get(User, learner.id).streak_freezes == 0
+        assert db.scalar(select(func.count()).select_from(model).where(model.user_id == learner.id)) > 0
+    db.refresh(learner)
+    assert (learner.is_guest, learner.total_xp, learner.gems, learner.streak_freezes) == (False, 30, 120, 1)
 
 
 @pytest.mark.parametrize(

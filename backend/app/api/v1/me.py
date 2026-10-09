@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request, Response
 
-from app.api.v1.views import achievement_out, me_out, regen_every
+from app.api.v1.views import achievement_out, act_as_demo_learner, act_as_guest, me_out, regen_every
 from app.core.errors import error_response
-from app.deps import ClockDep, CurrentUser, DbSession, SettingsDep
+from app.deps import ClockDep, CurrentUser, DbSession, SettingsDep, demo_learner
 from app.schemas.achievement import AchievementOut
 from app.schemas.me import DailyXpOut, MeOut, MeUpdate, Onboarding
 from app.schemas.settings import UserSettingsOut, UserSettingsUpdate
@@ -12,7 +12,9 @@ from app.services.achievements import achievement_progress
 from app.services.learner import (
     daily_xp,
     learner_settings,
+    preferences,
     refill_hearts,
+    set_preferences,
     start_as_new_learner,
     update_learner,
     update_settings,
@@ -59,14 +61,38 @@ def update_me(
     },
 )
 def complete_onboarding(
-    choices: Onboarding, user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep
+    choices: Onboarding,
+    user: CurrentUser,
+    db: DbSession,
+    clock: ClockDep,
+    settings: SettingsDep,
+    request: Request,
+    response: Response,
 ) -> MeOut:
-    """Finish the "Get started" flow. The learner starts over as a new account: their history
-    (lessons, XP, path progress, achievements) is cleared, their stats are reset (0 XP, no streak,
-    full hearts, 500 gems), and the chosen course, daily goal and time zone are saved. The path
-    starts again at its first node."""
-    start_as_new_learner(db, user, choices, clock.now())
-    return me_out(db, user, clock, settings)
+    """Finish the "Get started" flow: this browser becomes a guest learner, separate from the demo
+    learner, whose progress is left alone. The guest starts with no history, 0 XP, no streak, full
+    hearts and 500 gems, at the first node of the chosen course, with the chosen daily goal and time
+    zone; preferences from the settings page carry over. Doing it again starts the guest over. The
+    response sets the `learner` cookie that makes later requests act as the guest."""
+    guest = start_as_new_learner(db, settings.guest_username, user, choices, clock.now())
+    act_as_guest(request, response)
+    return me_out(db, guest, clock, settings)
+
+
+@router.post("/sign-in", response_model=MeOut)
+def sign_in(
+    user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep, response: Response
+) -> MeOut:
+    """Sign in to the demo account ("I already have an account"): this browser stops being the guest and
+    acts as the demo learner again, with their progress. The brief assumes a logged-in learner, so there
+    is no password. The guest's preferences carry over; its progress stays with the guest. Clears the
+    `learner` cookie."""
+    learner = demo_learner(db, settings)
+    if user is not learner:
+        set_preferences(db, learner, preferences(db, user))
+        db.commit()
+    act_as_demo_learner(response)
+    return me_out(db, learner, clock, settings)
 
 
 @router.post(
