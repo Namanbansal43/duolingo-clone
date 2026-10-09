@@ -1,6 +1,9 @@
-# Duolingo Clone
+# Duolingo Clone: build documentation
 
-A full-stack Duolingo-style learning app built for an SDE assignment.
+The full record of how this project was built: every page and how it was measured against duolingo.com, every
+game rule, and the reasoning behind each decision, written up step by step as the work went along. For an
+overview of the project, start with the [README](README.md); the database and API references are in
+[docs/DATABASE.md](docs/DATABASE.md) and [docs/API.md](docs/API.md).
 
 | Part | Stack | Status |
 | --- | --- | --- |
