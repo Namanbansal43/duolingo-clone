@@ -1,12 +1,17 @@
 from datetime import datetime, timedelta
+from typing import assert_never
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
+    AcceptedAnswer,
     Achievement,
     AchievementTier,
     Course,
+    Exercise,
+    ExerciseOption,
+    ExerciseType,
     Lesson,
     LessonSession,
     SessionMode,
@@ -51,7 +56,8 @@ def _seed_courses(db: Session) -> None:
 
 
 def _seed_spanish_content(db: Session) -> None:
-    """Units, path nodes and lessons, matched by position so reruns only add what is missing."""
+    """Units, path nodes, lessons and exercises, matched by position so reruns only add what is missing.
+    A lesson's exercises are only added while it has none, so seeded content is never rewritten."""
     course = db.scalars(
         select(Course).where(Course.learning_language == "es", Course.from_language == "en")
     ).one()
@@ -67,11 +73,89 @@ def _seed_spanish_content(db: Session) -> None:
             if skill is None:
                 skill = Skill(position=skill_position, title=skill_seed.title, kind=skill_seed.kind)
                 unit.skills.append(skill)
-            seeded = {lesson.position for lesson in skill.lessons}
-            for lesson_position in range(1, skill_seed.lessons + 1):
-                if lesson_position not in seeded:
-                    skill.lessons.append(Lesson(position=lesson_position))
+            lessons = {lesson.position: lesson for lesson in skill.lessons}
+            for lesson_position, exercise_seeds in enumerate(skill_seed.lessons, start=1):
+                lesson = lessons.get(lesson_position)
+                if lesson is None:
+                    lesson = Lesson(position=lesson_position)
+                    skill.lessons.append(lesson)
+                if not lesson.exercises:
+                    lesson.exercises.extend(
+                        _exercise(position, seed) for position, seed in enumerate(exercise_seeds, start=1)
+                    )
     db.flush()
+
+
+def _exercise(position: int, seed: spanish.ExerciseSeed) -> Exercise:
+    match seed:
+        case spanish.Choice(prompt, language, answer, wrong):
+            return Exercise(
+                position=position,
+                type=ExerciseType.MULTIPLE_CHOICE,
+                prompt=prompt,
+                prompt_language=language,
+                options=_choices(answer, wrong),
+            )
+        case spanish.Tiles(prompt, language, answers, distractors):
+            return Exercise(
+                position=position,
+                type=ExerciseType.WORD_BANK,
+                prompt=prompt,
+                prompt_language=language,
+                options=_tiles(spanish.tile_words(answers[0]) + distractors),
+                accepted_answers=_accepted(answers),
+            )
+        case spanish.Pairs(pairs):
+            return Exercise(
+                position=position,
+                type=ExerciseType.MATCH_PAIRS,
+                options=[
+                    ExerciseOption(position=i, text=spanish_text, match_text=english_text)
+                    for i, (spanish_text, english_text) in enumerate(pairs, start=1)
+                ],
+            )
+        case spanish.Blank(prompt, answer, wrong):
+            return Exercise(
+                position=position,
+                type=ExerciseType.FILL_BLANK,
+                prompt=prompt,
+                prompt_language="es",
+                options=_choices(answer, wrong),
+            )
+        case spanish.Typed(prompt, language, answers):
+            return Exercise(
+                position=position,
+                type=ExerciseType.TYPE_ANSWER,
+                prompt=prompt,
+                prompt_language=language,
+                accepted_answers=_accepted(answers),
+            )
+        case spanish.Listen(sentence, distractors):
+            return Exercise(
+                position=position,
+                type=ExerciseType.LISTEN,
+                prompt=sentence,
+                prompt_language="es",
+                options=_tiles(spanish.tile_words(sentence) + distractors),
+                accepted_answers=_accepted([sentence]),
+            )
+        case _:
+            assert_never(seed)
+
+
+def _choices(answer: str, wrong: list[str]) -> list[ExerciseOption]:
+    return [
+        ExerciseOption(position=i, text=text, is_correct=text == answer)
+        for i, text in enumerate([answer, *wrong], start=1)
+    ]
+
+
+def _tiles(words: list[str]) -> list[ExerciseOption]:
+    return [ExerciseOption(position=i, text=word) for i, word in enumerate(words, start=1)]
+
+
+def _accepted(answers: list[str]) -> list[AcceptedAnswer]:
+    return [AcceptedAnswer(text=text, is_primary=i == 0) for i, text in enumerate(answers)]
 
 
 def _seed_achievements(db: Session) -> None:

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -14,7 +14,8 @@ from app.models import (
     XpEvent,
 )
 from app.schemas.me import MeUpdate, Onboarding
-from app.services.rules import STARTING_GEMS
+from app.services.hearts import live_hearts
+from app.services.rules import HEART_REFILL_GEMS, STARTING_GEMS
 
 
 def available_course(db: Session, course_id: int) -> Course:
@@ -62,6 +63,18 @@ def start_as_new_learner(db: Session, user: User, choices: Onboarding, now: date
     user.current_streak = user.longest_streak = 0
     user.last_streak_date = None
     user.streak_freezes = 0
+    db.commit()
+
+
+def refill_hearts(db: Session, user: User, now: datetime, regen_every: timedelta) -> None:
+    """Buy a full set of hearts with gems."""
+    if live_hearts(user, now, regen_every).current >= user.max_hearts:
+        raise AppError(409, "hearts_full", "Your hearts are already full.")
+    if user.gems < HEART_REFILL_GEMS:
+        raise AppError(409, "not_enough_gems", f"Refilling hearts costs {HEART_REFILL_GEMS} gems.")
+    user.gems -= HEART_REFILL_GEMS
+    user.hearts = user.max_hearts
+    user.hearts_updated_at = now
     db.commit()
 
 

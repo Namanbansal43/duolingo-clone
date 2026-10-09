@@ -1,9 +1,11 @@
+from alembic import command
 from alembic.autogenerate import compare_metadata
+from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import BACKEND_DIR, Settings
 from app.core.db import create_db_engine, reset_database, run_migrations
 from app.models import Achievement, AchievementTier, Base, Course, User, UserSettings
 from app.seed import data, seed_database
@@ -83,3 +85,29 @@ def test_seeding_again_adds_nothing_and_keeps_progress(
     db.refresh(learner)
     assert learner.gems == 42
     assert learner.settings.sound_effects is False
+
+
+def test_downgrading_keeps_listening_exercises_as_word_banks(settings: Settings) -> None:
+    engine = create_db_engine(settings.database_url)
+    run_migrations(engine)
+    with engine.begin() as connection:
+        for statement in [
+            "INSERT INTO courses (id, learning_language, from_language, title, position, is_available) "
+            "VALUES (1, 'es', 'en', 'Spanish', 0, 1)",
+            "INSERT INTO units (id, course_id, position, title) VALUES (1, 1, 1, 'Unit')",
+            "INSERT INTO skills (id, unit_id, position, title, kind) VALUES (1, 1, 1, 'Say hello', 'lesson')",
+            "INSERT INTO lessons (id, skill_id, position) VALUES (1, 1, 1)",
+            "INSERT INTO exercises (id, lesson_id, position, type, prompt, prompt_language) "
+            "VALUES (1, 1, 1, 'listen', 'Hola.', 'es')",
+        ]:
+            connection.execute(text(statement))
+
+    config = Config(str(BACKEND_DIR / "alembic.ini"))
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.downgrade(config, "0003")
+
+    with engine.connect() as connection:
+        kind = connection.execute(text("SELECT type FROM exercises WHERE id = 1")).scalar()
+    engine.dispose()
+    assert kind == "word_bank"

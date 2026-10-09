@@ -9,7 +9,17 @@ from sqlalchemy.orm import Session
 
 from app.core.config import BACKEND_DIR, Settings
 from app.core.db import create_db_engine, run_migrations
-from app.models import Lesson, LessonSession, Skill, Unit, User, UserSkillProgress, XpEvent, XpSource
+from app.models import (
+    Exercise,
+    Lesson,
+    LessonSession,
+    Skill,
+    Unit,
+    User,
+    UserSkillProgress,
+    XpEvent,
+    XpSource,
+)
 from app.seed import data, seed_database, spanish
 from app.services.rules import CHEST_GEMS, STARTING_GEMS
 from tests.conftest import NOW, FixedClock
@@ -43,11 +53,11 @@ def test_seeded_learner_is_partway_through_unit_one(client: TestClient) -> None:
     unit_one = path["units"][0]["nodes"]
     assert [node["kind"] for node in unit_one] == ["lesson", "lesson", "chest", "lesson", "review"]
     assert [(node["lessons_completed"], node["lessons_total"]) for node in unit_one] == [
-        (3, 3),
-        (1, 3),
+        (2, 2),
+        (1, 2),
         (0, 0),
-        (0, 3),
         (0, 2),
+        (0, 1),
     ]
     assert node_states(path) == [
         ["completed", "active", "locked", "locked", "locked"],
@@ -159,7 +169,10 @@ def test_seeded_content_and_history_are_consistent(
 
     assert count(Unit) == len(spanish.UNITS)
     assert count(Skill) == sum(len(unit.skills) for unit in spanish.UNITS)
-    assert count(Lesson) == sum(skill.lessons for unit in spanish.UNITS for skill in unit.skills)
+    assert count(Lesson) == sum(len(skill.lessons) for unit in spanish.UNITS for skill in unit.skills)
+    assert count(Exercise) == sum(
+        len(lesson) for unit in spanish.UNITS for skill in unit.skills for lesson in skill.lessons
+    )
     # Reseeding never adds a second history; the history matches the learner's totals.
     lessons_done = sum(lessons for _, lessons in data.DEMO_HISTORY)
     assert count(LessonSession) == lessons_done

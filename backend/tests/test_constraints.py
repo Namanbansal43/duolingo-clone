@@ -122,7 +122,7 @@ def test_deleting_a_unit_deletes_everything_beneath_it(db: Session, lesson: Less
         )
         == 0
     )
-    assert count(db, Exercise) == 0
+    assert db.get(Exercise, exercise_id) is None
 
 
 def test_content_with_answers_cannot_be_deleted(db: Session, lesson: Lesson, learner: User) -> None:
@@ -201,6 +201,7 @@ def test_deleting_a_learner_deletes_everything_they_own(db: Session, lesson: Les
     )
     db.commit()
 
+    exercises_before = count(db, Exercise)
     db.execute(delete(User).where(User.id == learner.id))
     db.commit()
 
@@ -208,4 +209,4 @@ def test_deleting_a_learner_deletes_everything_they_own(db: Session, lesson: Les
     assert {model.__tablename__: count(db, model) for model in owned} == dict.fromkeys(
         (model.__tablename__ for model in owned), 0
     )
-    assert count(db, Exercise) == 1  # content is untouched
+    assert count(db, Exercise) == exercises_before  # content is untouched

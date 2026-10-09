@@ -25,6 +25,7 @@ class ExerciseType(StrEnum):
     MATCH_PAIRS = "match_pairs"
     FILL_BLANK = "fill_blank"
     TYPE_ANSWER = "type_answer"
+    LISTEN = "listen"  # "Tap what you hear": the prompt is read aloud, the learner rebuilds it from tiles
 
 
 class Course(Base):
@@ -106,7 +107,7 @@ class Exercise(Base):
     """One challenge in a lesson. How each type uses options and accepted answers:
 
     multiple_choice, fill_blank  options are the choices, exactly one is_correct
-    word_bank                    options are the tiles (distractors included); accepted_answers grade it
+    word_bank, listen            options are the tiles (distractors included); accepted_answers grade it
     type_answer                  accepted_answers only
     match_pairs                  each option is one pair: text <-> match_text; no prompt
     """
@@ -160,8 +161,8 @@ class ExerciseOption(Base):
 
 
 class AcceptedAnswer(Base):
-    """A correct answer for word_bank and type_answer. Grading normalises case, punctuation and spacing;
-    the primary answer is the one shown as "Correct solution"."""
+    """A correct answer for word_bank, listen and type_answer. Grading normalises case, punctuation and
+    spacing; the primary answer is the one shown as "Correct solution"."""
 
     __tablename__ = "accepted_answers"
     __table_args__ = (

@@ -21,8 +21,8 @@ def test_me_is_the_seeded_default_learner(client: TestClient) -> None:
     assert body["daily_goal_xp"] == 20
     assert body["gems"] == 500
     assert body["hearts"] == {"current": 5, "max": 5, "next_heart_at": None, "regen_minutes": 30}
-    # Seeded history (data.DEMO_HISTORY): 4 lessons of 10 XP on the three days before today.
-    assert (body["total_xp"], body["lessons_completed"], body["xp_today"]) == (40, 4, 0)
+    # Seeded history (data.DEMO_HISTORY): 3 lessons of 10 XP on the three days before today.
+    assert (body["total_xp"], body["lessons_completed"], body["xp_today"]) == (30, 3, 0)
     assert body["streak"] == {"length": 3, "extended_today": False, "longest": 3}
 
 
@@ -201,4 +201,4 @@ def test_get_started_keeps_the_history_when_the_course_is_refused(
 
     assert response.status_code == status
     assert response.json()["error"]["code"] == code
-    assert client.get("/api/v1/me").json() == before  # still 40 XP, 4 lessons, a 3-day streak
+    assert client.get("/api/v1/me").json() == before  # still 30 XP, 3 lessons, a 3-day streak

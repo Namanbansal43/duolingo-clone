@@ -47,6 +47,10 @@ def create_app(settings: Settings | None = None, clock: Clock | None = None) -> 
             {"name": "me", "description": "The logged-in learner: profile, live stats and preferences."},
             {"name": "courses", "description": "The course catalogue and each course's learning path."},
             {"name": "path", "description": "Actions on path nodes."},
+            {
+                "name": "sessions",
+                "description": "Playing a lesson: start it, answer each exercise, finish or quit.",
+            },
             {"name": "health", "description": "Liveness check."},
         ],
         lifespan=lifespan,

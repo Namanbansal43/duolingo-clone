@@ -86,6 +86,16 @@ def course_path(db: Session, user: User, course: Course) -> CoursePath:
     return CoursePath(course=course, units=path_units, active_skill_id=active_skill_id)
 
 
+def path_node(db: Session, user: User, skill: Skill) -> PathNode:
+    """One node of the learner's path, with its state."""
+    return next(
+        node
+        for _, nodes in course_path(db, user, skill.unit.course).units
+        for node in nodes
+        if node.skill.id == skill.id
+    )
+
+
 def open_chest(db: Session, user: User, skill_id: int, now: datetime) -> int:
     """Open the chest node the learner has reached and pay out its gems. Returns the gems awarded."""
     skill = db.get(Skill, skill_id)
@@ -94,12 +104,7 @@ def open_chest(db: Session, user: User, skill_id: int, now: datetime) -> int:
     if skill.kind != SkillKind.CHEST:
         raise AppError(409, "not_a_chest", "That path node is not a chest.")
 
-    node = next(
-        node
-        for _, nodes in course_path(db, user, skill.unit.course).units
-        for node in nodes
-        if node.skill.id == skill_id
-    )
+    node = path_node(db, user, skill)
     if node.state == NodeState.COMPLETED:
         raise AppError(409, "chest_already_opened", "That chest has already been opened.")
     if node.state == NodeState.LOCKED:

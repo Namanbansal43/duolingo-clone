@@ -1,17 +1,21 @@
-from datetime import timedelta
-
 from fastapi import APIRouter
 from sqlalchemy.orm import Session
 
+from app.api.v1.views import hearts_out, regen_every
 from app.core.clock import Clock
 from app.core.config import Settings
 from app.core.errors import error_response
 from app.deps import ClockDep, CurrentUser, DbSession, SettingsDep
 from app.models import User
 from app.schemas.course import CourseOut
-from app.schemas.me import HeartsOut, MeOut, MeUpdate, Onboarding, StreakOut
-from app.services.hearts import hearts_status
-from app.services.learner import lessons_completed, start_as_new_learner, update_learner, xp_earned_on
+from app.schemas.me import MeOut, MeUpdate, Onboarding, StreakOut
+from app.services.learner import (
+    lessons_completed,
+    refill_hearts,
+    start_as_new_learner,
+    update_learner,
+    xp_earned_on,
+)
 from app.services.streak import local_date, streak_status
 
 router = APIRouter(
@@ -64,16 +68,20 @@ def complete_onboarding(
     return _me_out(db, user, clock, settings)
 
 
+@router.post(
+    "/hearts/refill",
+    response_model=MeOut,
+    responses={409: error_response("`hearts_full`, or `not_enough_gems` (a refill costs 350 gems).")},
+)
+def refill_my_hearts(user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep) -> MeOut:
+    """Refill hearts to full for 350 gems (a mocked purchase: gems are never bought with money)."""
+    refill_hearts(db, user, clock.now(), regen_every(settings))
+    return _me_out(db, user, clock, settings)
+
+
 def _me_out(db: Session, user: User, clock: Clock, settings: Settings) -> MeOut:
     now = clock.now()
     today = local_date(now, user.timezone)
-    hearts = hearts_status(
-        stored=user.hearts,
-        max_hearts=user.max_hearts,
-        updated_at=user.hearts_updated_at,
-        now=now,
-        regen_every=timedelta(minutes=settings.heart_regen_minutes),
-    )
     streak = streak_status(
         current=user.current_streak,
         longest=user.longest_streak,
@@ -92,11 +100,6 @@ def _me_out(db: Session, user: User, clock: Clock, settings: Settings) -> MeOut:
         xp_today=xp_earned_on(db, user, today),
         lessons_completed=lessons_completed(db, user),
         gems=user.gems,
-        hearts=HeartsOut(
-            current=hearts.current,
-            max=hearts.max,
-            next_heart_at=hearts.next_heart_at,
-            regen_minutes=settings.heart_regen_minutes,
-        ),
+        hearts=hearts_out(user, now, settings),
         streak=StreakOut(length=streak.length, extended_today=streak.extended_today, longest=streak.longest),
     )
