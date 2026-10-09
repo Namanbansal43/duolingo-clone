@@ -4,7 +4,7 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 
 | Part | Stack | Status |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile, leaderboard, quests, shop, settings, dark mode |
+| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, log in, `/learn`, lessons, profile, leaderboard, quests, shop, settings, dark mode |
 | `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course and rivals; learner, path, lesson, achievement, league, settings and demo-tools API |
 
 ## Running the backend
@@ -100,6 +100,7 @@ docker run -p 8000:8000 -v duolingo-data:/data duolingo-backend
 | --- | --- |
 | `/` | Landing page, matching duolingo.com section by section |
 | `/welcome` | The "Get started" flow (below) |
+| `/log-in` | "I already have an account": log in to the demo account (below) |
 | `/learn` | The learning path, inside the app shell (below) |
 | `/lesson` | The lesson being played, full screen (below) |
 | `/profile` | The learner's profile: statistics, XP this week, achievements (below) |
@@ -123,15 +124,24 @@ own onboarding and measured against it at 1280×800:
 
 Nothing is saved until the last CONTINUE, which sends one `POST /api/v1/me/onboarding` with the course, the daily
 goal and the browser's time zone (so streak days follow the learner's own midnight), then opens `/learn`. Like a
-new visitor on duolingo.com, the learner starts over as a **guest**: their history and stats are cleared, the path
-begins at its first node, and they have no profile yet. As on duolingo.com, a guest sees a "Create a profile to
-save your progress!" card in the right rail, and Profile shows that prompt instead of a profile. Its CREATE A
-PROFILE and SIGN IN buttons are "coming soon" (see [the logged-in learner](#the-logged-in-learner)). "I already
-have an account" goes straight to `/learn` and keeps the learner as they are, since the learner is always logged
-in.
+new visitor on duolingo.com, the browser becomes a **guest**: a learner of its own, separate from the demo
+account, starting at the first node with no history and no profile yet. The demo account is not touched. As on
+duolingo.com, a guest sees a "Create a profile to save your progress!" card in the right rail, and Profile shows
+that prompt instead of a profile. CREATE A PROFILE is "coming soon"; SIGN IN opens `/log-in` (see [the logged-in
+learner](#the-logged-in-learner)). Leagues need an account, so once a guest has finished the 10 lessons that open
+leaderboards, the leaderboard says "You need to sign in to join the leaderboard" with SIGN IN instead of
+entering them.
 
 Duolingo's flow also asks how you heard about it, why you are learning, how much you already know, and for
 notification permission. Those screens are left out: nothing in this app would use the answers.
+
+### `/log-in`
+
+"I already have an account" on the landing page, and SIGN IN anywhere a guest sees it, open duolingo.com's log-in
+screen, measured against it at 1280×800: the close button, SIGN UP (to "Get started"), "Log in", the two fields
+and LOG IN. The brief assumes one logged-in learner, so there is a single demo account (`alex`, filled in) and no
+password; Duolingo's Google, Facebook and Apple buttons are left out. LOG IN (`POST /api/v1/me/sign-in`) makes
+this browser the demo learner again and opens `/learn` with Alex's progress, which stays until "Reset the demo".
 
 ### `/learn`: the app shell and the learning path
 
@@ -213,7 +223,7 @@ achievement's next level).
   next goal. Both read `GET /api/v1/me/achievements`.
 - **Right rail**: the stats bar and a Following / Followers card with Duolingo's empty states.
 - **Guests**: after "Get started" there is no profile yet, so `/profile` and "View all" show "Create a profile to
-  save your progress!" with CREATE A PROFILE and SIGN IN ("coming soon") instead.
+  save your progress!" with CREATE A PROFILE ("coming soon") and SIGN IN instead.
 
 **Where XP shows.** The brief lists XP in the top bar, but duolingo.com's top bar has only the flag, streak, gems
 and hearts. To keep that bar identical, total XP is on the profile, today's XP is in the Daily Quests card on
@@ -234,6 +244,9 @@ finished #3 and advanced to the Silver League"...).
 - **Before joining**: with leaderboards locked the page says "Unlock Leaderboards! Complete 10 more lessons to
   start competing"; once open, each week starts with "Complete a lesson to join this week's leaderboard". Both
   show Duolingo's grey placeholder list and START A LESSON, and the learner's own empty row at the bottom.
+- **Guests**: a guest from "Get started" counts down the same 10 lessons, then sees "You need to sign in to join
+  the leaderboard" with SIGN IN (to `/log-in`), and the rail card says "Sign in to start competing". Guests never
+  join a league.
 - **A new week**: the first visit after a week ends shows how it went ("You finished #3 and advanced to the
   Silver League", "...kept your position in...", "...dropped down to..."), once.
 - **Live rivals**: the rivals keep practising through the week (see the rules below), so ranks change between
@@ -280,8 +293,9 @@ The Preferences page is measured against duolingo.com's own, opened as a guest.
     extends the streak and a day without one breaks it, hearts regenerate, rivals keep earning XP, and moving
     past Sunday ends the league week with its promotion or demotion.
   - *Empty hearts* takes every heart away, to see the out-of-hearts screen.
-  - *Reset the demo* puts everything back as first seeded (the learner, their history, the rivals and real
-    time) but keeps the preferences. It is also how a guest from "Get started" gets the demo learner back.
+  - *Reset the demo* puts everything back as first seeded (the demo learner, their history, the rivals and
+    real time), removes the guest from "Get started", and keeps the preferences. The browser is the demo
+    learner afterwards.
 
 Every change saves at once, as on Duolingo. The settings live on the server (`user_settings`); the browser only
 remembers the last dark mode choice so the next page load paints in the right theme before they arrive.
@@ -300,11 +314,11 @@ remembers the last dark mode choice so the next page load paints in the right th
 | Earning hearts back | Practice gives one back; a refill costs 350 gems (shop or out-of-hearts screen) | `backend/app/services/rules.py` |
 | Streak | The day's first finished lesson or practice adds a day (or starts again at 1 after a gap), in the learner's time zone; reads 0 after a missed day | `backend/app/services/streak.py` |
 | Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes); it is the daily quest, which resets at midnight in the learner's time zone | `backend/app/models/learner.py` |
-| Leaderboards | Open after 10 finished lessons (practice included); then each week, finishing a lesson joins that week's league | `backend/app/services/rules.py`, `leagues.py` |
+| Leaderboards | Open after 10 finished lessons (practice included); then each week, finishing a lesson joins that week's league. A guest is asked to sign in instead | `backend/app/services/rules.py`, `leagues.py` |
 | Leagues | Bronze, Silver, Gold, Sapphire, Ruby, Emerald, Amethyst, Pearl, Obsidian, Diamond. A week runs Monday to Sunday in the learner's time zone; 30 learners compete by XP earned that week. The top 7 move up a league and the bottom 5 down (none down from Bronze, none up from Diamond) | `backend/app/seed/data.py`, `backend/app/services/leagues.py` |
 | Rivals | 29 seeded learners, from keen to occasional. They follow the learner from league to league. Each rival's day (whether they practise, when, and how much XP) is fixed by their id and the date, and is written as real XP events whenever the leaderboard is read, so no background job runs | `backend/app/services/leagues.py` |
 | Achievements | Wildfire: longest streak of 3, 7, 14 ... 365 days (10 levels). Sage: 100, 250, 500 ... 30,000 XP (10 levels). Scholar: 5, 10, 25, 50 lessons. Sharpshooter: 3, 10, 25, 50 lessons without a mistake. Practice sessions count as lessons. Levels are checked when a session finishes and are never lost | `backend/app/seed/data.py`, `backend/app/services/achievements.py` |
-| New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak, as a guest without a profile; preferences are kept | `backend/app/services/learner.py` |
+| New learner ("Get started") | A guest of its own, separate from the demo account: starts at the first node with 500 gems, 5 hearts, no XP and no streak, without a profile; the current preferences carry over | `backend/app/services/learner.py` |
 | The app's clock | Real time plus the days advanced with the demo tools (`demo_clock`). Every request reads time from it, and `/me` returns it as `now` so the page's countdowns agree | `backend/app/services/demo.py`, `frontend/src/lib/clock.ts` |
 
 ### Demo data
@@ -315,8 +329,9 @@ days before the database was first seeded: sessions, XP events, 30 XP and a 3-da
 extends. Those lessons have already earned level 1 of Wildfire (3-day streak) and Sharpshooter (3 lessons
 without a mistake); two more sessions, practice included, unlock Scholar. Leaderboards normally open after 10
 lessons, but this learner is already in this week's Bronze League with the 29 rivals, whose XP runs from the
-Monday of the week the database was seeded. This is the learner that "I already have an account" opens. Finishing "Get started" replaces them with a brand-new guest at the first node;
-"Reset the demo" in Settings (or `python -m app.seed --reset`) restores this starting point, profile included.
+Monday of the week the database was seeded. This is the account "I already have an account" logs in to.
+"Get started" never touches it: the guest is a separate learner. "Reset the demo" in Settings (or
+`python -m app.seed --reset`) restores this starting point.
 
 The seed only ever adds what is missing, so it never rewrites content a database already has. After the course
 content changes (the lesson player step trimmed each lesson node to 2 lessons), reset an existing database with
@@ -330,15 +345,24 @@ the rules the database enforces and the design decisions are in [docs/DATABASE.m
 
 ## The logged-in learner
 
-The brief asks us to assume a logged-in user, so there is no sign-up or login. The seed creates one learner
-(`alex`), and every API request acts as them: the `get_current_user` dependency in `backend/app/deps.py` is the
-only code that decides who "me" is. Adding real authentication would mean replacing that one function.
+The brief asks us to assume a logged-in user, so there is no real sign-up or password. The seed creates the
+demo account (`alex`), and an API request acts as them unless the browser went through "Get started":
 
-"Get started" doesn't create a second learner either: it starts this one over as a guest (`users.is_guest`), who
-is asked to create a profile, as on duolingo.com. Creating a profile and signing in are "coming soon", so a guest
-stays a guest until "Reset the demo" in Settings brings back the demo learner.
+| The browser... | Acts as | How |
+| --- | --- | --- |
+| Opened the app directly, or logged in ("I already have an account", SIGN IN) | The demo learner, `alex` | No `learner` cookie (`POST /api/v1/me/sign-in` clears it) |
+| Finished "Get started" | The guest (`users.is_guest`), a separate learner | `POST /api/v1/me/onboarding` sets an HttpOnly cookie, `learner=guest` |
 
-On a shared demo deployment, every visitor therefore sees and changes the same learner.
+The `get_current_user` dependency in `backend/app/deps.py` is the only code that reads the cookie and decides who
+"me" is; adding real authentication would mean replacing that one function. Keeping the guest apart means trying
+"Get started" never wipes the demo account, in this tab or any other. The guest's own progress stays with the
+guest until the next "Get started" starts it over; it is not merged into the demo account on logging in, just as
+logging in to an existing account on duolingo.com doesn't merge a guest's progress. The settings-page
+preferences carry over both ways, as they describe the device rather than the progress.
+
+The browser cookie goes through the frontend's `/api` proxy, so it is a first-party cookie of the site. There is
+one demo account and one guest, so on a shared deployment everyone who logs in shares Alex's progress, and two
+visitors in "Get started" at the same time share the guest.
 
 ## API
 
@@ -347,7 +371,8 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | GET | `/api/health` | Liveness check, including the database |
 | GET | `/api/v1/me` | The learner with live stats: hearts after regeneration, streak and XP as of today |
 | PATCH | `/api/v1/me` | Set the active course, daily goal (10/20/30/50 XP) or time zone, keeping progress |
-| POST | `/api/v1/me/onboarding` | Finish "Get started": the learner starts over as a guest with the chosen course, goal and time zone |
+| POST | `/api/v1/me/onboarding` | Finish "Get started": the browser becomes a new guest with the chosen course, goal and time zone |
+| POST | `/api/v1/me/sign-in` | "I already have an account": the browser is the demo learner again |
 | GET | `/api/v1/courses` | All courses in display order with learner counts; only Spanish is available |
 | GET | `/api/v1/courses/{course_id}/path` | The course's units and nodes, each completed, active or locked |
 | POST | `/api/v1/skills/{skill_id}/open-chest` | Open the treasure chest the learner has reached (+20 gems) |
@@ -366,7 +391,7 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | GET | `/api/v1/demo/clock` | How many days the app's clock runs ahead, and its time now |
 | POST | `/api/v1/demo/clock/advance` | Move the app's clock forward a day |
 | POST | `/api/v1/demo/hearts/empty` | Lose every heart, to try the out-of-hearts screen |
-| POST | `/api/v1/demo/reset` | Everything back to the seeded state and real time; preferences kept |
+| POST | `/api/v1/demo/reset` | Everything back to the seeded state and real time, the guest removed; preferences kept |
 
 Every request and response, with real examples and every error code, is documented in
 [docs/API.md](docs/API.md). With the backend running, `/docs` serves the same reference interactively.

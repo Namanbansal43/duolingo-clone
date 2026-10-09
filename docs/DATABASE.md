@@ -97,7 +97,7 @@ erDiagram
         string display_name
         datetime created_at
         string timezone
-        bool is_guest "after Get started, until a profile exists"
+        bool is_guest "the guest from Get started"
         int active_course_id FK
         int daily_goal_xp "10 | 20 | 30 | 50"
         int total_xp
@@ -233,8 +233,8 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | A league someone has competed in | Refused (`RESTRICT` from `league_memberships`) | Past results must keep their league |
 | A course someone is studying | Their `active_course_id` becomes NULL (`SET NULL`) | The learner stays |
 | A lesson session | Its XP stays, with `session_id` set to NULL (`SET NULL`) | XP already earned is kept |
-| A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events, unlocks and league weeks are deleted; the `users` row is reset and marked `is_guest`, settings kept | They start over as a new visitor, and there is one built-in learner |
-| Everything, on "Reset the demo" (settings page) | Every `users` row (rivals included) and so, by `CASCADE`, all their rows; `demo_clock` too. The seed then runs again, and the learner's preferences are copied back | The demo returns to its first state without touching content |
+| The guest's history, when "Get started" is finished again | The guest's progress, sessions, answers, XP events and unlocks are deleted and its `users` row is reset | There is one guest learner, and it starts over as a new visitor; the demo learner is never touched |
+| Everything, on "Reset the demo" (settings page) | Every `users` row (the guest and rivals included) and so, by `CASCADE`, all their rows; `demo_clock` too. The seed then runs again, and the current learner's preferences are copied to the demo learner | The demo returns to its first state without touching content |
 
 ## How the six exercise types are stored
 
@@ -299,6 +299,10 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
   streaks, hearts, rivals and league weeks are all derived from timestamps on read, they all move forward
   together, and resetting the demo is just deleting that row. It is a typed single-row table rather than a
   generic key-value table, so the database can check it.
+- **The guest is a second learner, not a reset.** "Get started" creates (or starts over) one `users` row with
+  `username` `guest` and `is_guest` set, instead of wiping the demo learner. It needs no new table or column:
+  which of the two a browser acts as is an HttpOnly cookie, read only by `get_current_user`. Guests never get a
+  `league_memberships` row (leagues need an account), so the rivals' leagues follow only the demo learner.
 - **Dark mode is a choice, not a flag.** duolingo.com offers System default, On and Off, so `dark_mode` stores
   one of those three words; the browser resolves "system" against the device's setting.
 - **Fixed prices.** Shop items are fixed prices in code.
@@ -319,7 +323,7 @@ for learners but keeps the content and the learner's preferences.
 | Rivals | 29 learners studying Spanish, with how much and how often each practises, from a few keen ones to occasional ones (`data.RIVALS`). Their XP is simulated from the Monday of the week the database is seeded. |
 | Achievements | Wildfire (longest streak: 3, 7, 14 ... 365 days) and Sage (total XP: 100, 250, 500 ... 30,000), with duolingo.com's 10 levels each; Scholar (lessons: 5, 10, 25, 50) and Sharpshooter (lessons without a mistake: 3, 10, 25, 50), 4 levels each. Defined in `backend/app/seed/data.py`; levels added there reach existing databases on the next start. |
 | The built-in learner | `alex`, studying Spanish with a 20 XP daily goal and 500 gems |
-| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. That history reaches level 1 of Wildfire and Sharpshooter: on every start the seed stores any level the learner's progress already reaches. They are also already in this week's Bronze League with the rivals. Finishing "Get started" clears it all. |
+| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. That history reaches level 1 of Wildfire and Sharpshooter: on every start the seed stores any level the learner's progress already reaches. They are also already in this week's Bronze League with the rivals. "Get started" never touches it: the guest is created on first use, not seeded. |
 
 ## Migrations
 
@@ -329,7 +333,7 @@ for learners but keeps the content and the learner's preferences.
 | `0002` | The other 14 tables, and `users.streak_freezes` |
 | `0003` | `review` path nodes (the trophy that ends each unit): widens the `skills.kind` CHECK |
 | `0004` | `listen` exercises ("Tap what you hear"): widens the `exercises.type` CHECK |
-| `0005` | `users.is_guest`: set when "Get started" starts the learner over, so the profile page asks them to create a profile; existing learners keep theirs (`false`) |
+| `0005` | `users.is_guest`: marks the guest from "Get started", so the profile page asks them to create a profile; existing learners keep theirs (`false`) |
 | `0006` | `leagues`, `league_memberships` and `rivals` |
 | `0007` | `demo_clock`; `user_settings.dark_mode` becomes `system`, `on` or `off` (a stored "off" was only the old default, so it becomes `system`; "on" stays on) |
 

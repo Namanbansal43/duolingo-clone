@@ -18,7 +18,8 @@ examples show a learner partway through Unit 1.
 | GET | [`/api/health`](#get-apihealth) | Liveness check, including the database |
 | GET | [`/api/v1/me`](#get-apiv1me) | The logged-in learner with live stats |
 | PATCH | [`/api/v1/me`](#patch-apiv1me) | Change the learner's course, daily goal or time zone |
-| POST | [`/api/v1/me/onboarding`](#post-apiv1meonboarding) | Finish "Get started": the learner starts over as a guest |
+| POST | [`/api/v1/me/onboarding`](#post-apiv1meonboarding) | Finish "Get started": the browser becomes a new guest |
+| POST | [`/api/v1/me/sign-in`](#post-apiv1mesign-in) | "I already have an account": back to the demo learner |
 | GET | [`/api/v1/courses`](#get-apiv1courses) | The course catalogue |
 | GET | [`/api/v1/courses/{course_id}/path`](#get-apiv1coursescourse_idpath) | A course's learning path with the learner's progress |
 | POST | [`/api/v1/skills/{skill_id}/open-chest`](#post-apiv1skillsskill_idopen-chest) | Open a treasure chest on the path |
@@ -41,9 +42,11 @@ examples show a learner partway through Unit 1.
 
 ## Conventions
 
-- **No authentication.** The brief assumes a logged-in user, so every request acts as the built-in learner
-  (`alex`). No token or cookie is needed. Real auth would only replace `get_current_user` in
-  `backend/app/deps.py`.
+- **No authentication.** The brief assumes a logged-in user, so a request acts as the demo learner (`alex`)
+  with no token or password. The one exception is a browser that finished "Get started": the response set an
+  HttpOnly cookie, `learner=guest`, and while it is sent, requests act as the guest, a separate learner. Logging
+  in ([`POST /api/v1/me/sign-in`](#post-apiv1mesign-in)) and resetting the demo clear it. Real auth would only
+  replace `get_current_user` in `backend/app/deps.py`.
 - **JSON in, JSON out.** Send `Content-Type: application/json` with request bodies.
 - **Times** are ISO 8601 in UTC with a `Z` suffix, e.g. `2026-10-08T12:20:00Z`. IDs are integers.
 - **The app's clock.** "Now" for every endpoint is real time plus any days advanced with the
@@ -138,9 +141,9 @@ The learner, with stats as they are right now.
 | `id` | integer | Learner id |
 | `username` | string | Unique handle, e.g. `alex` |
 | `display_name` | string | Name shown in the app |
-| `joined_at` | datetime | When the learner signed up: when the database was seeded, or when they last finished "Get started" |
+| `joined_at` | datetime | When the learner signed up: for the demo learner, when their seeded history began; for the guest, when "Get started" was last finished |
 | `timezone` | string | IANA time zone, e.g. `Asia/Kolkata`. Decides when the learner's day starts. |
-| `is_guest` | boolean | `true` after "Get started": the learner has no profile yet, so the profile page asks them to create one (as duolingo.com does for guests) |
+| `is_guest` | boolean | `true` for the guest from "Get started": no profile yet, so the profile page asks them to create one (as duolingo.com does for guests), and leagues ask them to sign in |
 | `active_course` | [Course](#course) or null | The course being studied |
 | `daily_goal_xp` | integer | XP per day: `10` Casual, `20` Regular, `30` Serious, `50` Intense |
 | `total_xp` | integer | All XP ever earned |
@@ -534,22 +537,23 @@ curl -X PATCH http://localhost:8000/api/v1/me \
 
 ## POST /api/v1/me/onboarding
 
-Finishes the "Get started" flow. Like a new visitor on duolingo.com, the learner starts over as a guest, with no
-profile yet, and their path begins again at its first node. The brief has a single built-in learner, so this
-resets that learner:
+Finishes the "Get started" flow. Like a new visitor on duolingo.com, the browser becomes a **guest**: a learner
+of its own (`username` `guest`), with no profile yet, whose path begins at its first node. The demo learner is
+not touched. The response sets the cookie `learner=guest` (HttpOnly, SameSite=Lax, a year), so the browser's
+later requests act as the guest. There is one guest: the first call creates it, and later calls start it over.
 
 | What | Becomes |
 | --- | --- |
-| Lesson sessions and their answers, XP events, path progress, unlocked achievements, league weeks | Deleted |
+| The guest's lesson sessions and their answers, XP events, path progress, unlocked achievements | Deleted |
 | `total_xp`, the streak (current and longest), streak freezes | 0 |
 | Hearts | Full |
 | Gems | 500, a new learner's balance |
 | `joined_at` | Now |
-| `is_guest` | `true`: the profile page asks them to create a profile ("coming soon") |
+| `is_guest` | `true`: the profile page asks them to create a profile ("coming soon"), and leagues ask them to sign in |
 | Course, daily goal, time zone | The values sent |
+| Settings-page preferences | Copied from the learner making the request |
 
-The username, display name and settings-page preferences are kept. If the request is refused (any error below),
-nothing changes. "I already have an account" doesn't call this: it opens `/learn` with the learner as they are.
+If the request is refused (any error below), nothing changes and no cookie is set.
 
 **Request body:** all three fields are required.
 
@@ -573,9 +577,9 @@ node `locked`, with `active_node_id` pointing at the first node.
 
 ```json
 {
-  "id": 30,
-  "username": "alex",
-  "display_name": "Alex",
+  "id": 31,
+  "username": "guest",
+  "display_name": "Guest",
   "joined_at": "2026-10-08T12:00:00Z",
   "timezone": "Asia/Kolkata",
   "is_guest": true,
@@ -639,7 +643,28 @@ looks like this, for a body without `daily_goal_xp`:
 ```bash
 curl -X POST http://localhost:8000/api/v1/me/onboarding \
   -H "Content-Type: application/json" \
-  -d '{"active_course_id": 1, "daily_goal_xp": 30, "timezone": "Asia/Kolkata"}'
+  -d '{"active_course_id": 1, "daily_goal_xp": 30, "timezone": "Asia/Kolkata"}' \
+  -c cookies.txt   # keep the cookie: later requests with -b cookies.txt act as the guest
+```
+
+---
+
+## POST /api/v1/me/sign-in
+
+"I already have an account": logs this browser in to the demo account. The brief assumes a logged-in learner, so
+there is no password and no body. The response clears the `learner` cookie, so the browser's requests act as the
+demo learner (`alex`) again, with their progress; it stays until the demo is reset. Coming from the guest, the
+guest's settings-page preferences carry over to the demo learner, and the guest's progress stays with the guest
+(it is not merged). For a browser that is already the demo learner, nothing changes.
+
+**Request:** no body.
+
+**Response `200 OK`:** the demo learner as a [Me](#me) object, as in the [GET /api/v1/me](#get-apiv1me) example.
+
+**Errors:** `503 learner_missing`.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/me/sign-in -b cookies.txt -c cookies.txt
 ```
 
 ---
@@ -802,7 +827,8 @@ curl http://localhost:8000/api/v1/me/settings
 ## PATCH /api/v1/me/settings
 
 Changes some preferences. Send only the fields to change: the settings page sends one per switch or menu
-change, as duolingo.com saves each change at once. "Get started" keeps these (it only resets progress).
+change, as duolingo.com saves each change at once. "Get started" and logging in carry these over to the
+learner the browser becomes.
 
 **Request body:** any fields of [User settings](#user-settings).
 
@@ -881,6 +907,7 @@ leaderboards), and the seeded rivals join with the learner.
 | --- | --- | --- |
 | `unlocked` | boolean | Leaderboards are open for this learner |
 | `lessons_to_unlock` | integer | Lessons left before they open; `0` once open |
+| `sign_in_required` | boolean | `true` for a guest from "Get started" who has finished the 10 lessons: leagues need an account, so they are asked to [sign in](#post-apiv1mesign-in). Leaderboards stay locked for a guest (`unlocked: false`, `league: null`). |
 | `leagues` | array of [League](#league) | All ten, Bronze first (for the row of badges) |
 | `league` | [League](#league) or null | This week's league: the one joined, or the one the next finished lesson joins (after last week's result). Null while locked. |
 | `joined` | boolean | A lesson has been finished this week, so the learner is in the standings |
@@ -937,7 +964,8 @@ Sunday), the learner stays in Bronze, and the new week waits for a lesson. Showi
 ```
 
 A learner who has not unlocked leaderboards yet gets `"unlocked": false`, `"lessons_to_unlock": 10` (or fewer),
-`"league": null` and no standings.
+`"league": null` and no standings. A guest who has finished them gets the same with `"lessons_to_unlock": 0` and
+`"sign_in_required": true`.
 
 **Errors:** `503 learner_missing`.
 
@@ -1411,12 +1439,13 @@ curl -X POST http://localhost:8000/api/v1/demo/hearts/empty
 
 ## POST /api/v1/demo/reset
 
-Starts the demo again. The clock returns to real time, every learner (the rivals too) is deleted with all their
-progress, and the seed runs again, so the built-in learner is back to the [GET /api/v1/me](#get-apiv1me)
-example: a 3 day streak, 30 XP, 5 hearts, a profile (`is_guest: false`) and a place in this week's Bronze
-league. Preferences from the settings page are kept.
+Starts the demo again. The clock returns to real time, every learner (the guest and the rivals too) is deleted
+with all their progress, and the seed runs again, so the demo learner is back to the
+[GET /api/v1/me](#get-apiv1me) example: a 3 day streak, 30 XP, 5 hearts, a profile (`is_guest: false`) and a
+place in this week's Bronze league. The response clears the `learner` cookie, so the browser is the demo learner
+afterwards. The current learner's preferences from the settings page are kept.
 
-**Response `200 OK`:** the new learner as a [Me](#me) object.
+**Response `200 OK`:** the new demo learner as a [Me](#me) object.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/demo/reset
