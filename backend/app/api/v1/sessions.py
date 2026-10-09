@@ -55,6 +55,18 @@ def start_session(
     return _session_out(session, user, clock, settings)
 
 
+@router.get(
+    "/current",
+    response_model=SessionOut,
+    responses={404: error_response("`session_not_found`: no lesson is in progress.")},
+)
+def get_current_session(
+    user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep
+) -> SessionOut:
+    """The session in progress, if any. The lesson page plays this one, so a refresh resumes it."""
+    return _session_out(service.current_session(db, user), user, clock, settings)
+
+
 @router.get("/{session_id}", response_model=SessionOut, responses={404: NOT_FOUND, 422: INVALID_ID})
 def get_session(
     session_id: int, user: CurrentUser, db: DbSession, clock: ClockDep, settings: SettingsDep

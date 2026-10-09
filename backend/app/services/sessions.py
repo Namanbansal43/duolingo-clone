@@ -100,6 +100,18 @@ def start_session(
     return session
 
 
+def current_session(db: Session, user: User) -> LessonSession:
+    """The learner's unfinished session (there is at most one: starting another abandons it)."""
+    session = db.scalar(
+        select(LessonSession)
+        .where(LessonSession.user_id == user.id, LessonSession.status == SessionStatus.IN_PROGRESS)
+        .order_by(LessonSession.started_at.desc(), LessonSession.id.desc())
+    )
+    if session is None:
+        raise AppError(404, "session_not_found", "No lesson is in progress.")
+    return session
+
+
 def get_session(db: Session, user: User, session_id: int) -> LessonSession:
     session = db.get(LessonSession, session_id)
     if session is None or session.user_id != user.id:

@@ -95,6 +95,7 @@ def test_the_active_node_plays_its_next_lesson(client: TestClient) -> None:
     # Nothing in the payload gives the answers away, and a reload shows the same order.
     assert "is_correct" not in str(played) and "accepted" not in str(played)
     assert client.get(f"/api/v1/sessions/{played['id']}").json() == played
+    assert client.get("/api/v1/sessions/current").json() == played
 
 
 def test_completed_nodes_are_practised(client: TestClient) -> None:
@@ -304,4 +305,6 @@ def test_ended_and_unknown_sessions(client: TestClient, db: Session) -> None:
     assert (response.status_code, response.json()["error"]["code"]) == (409, "session_finished")
     assert client.post(f"/api/v1/sessions/{second['id']}/quit").status_code == 204
     response = client.get("/api/v1/sessions/999999")
+    assert (response.status_code, response.json()["error"]["code"]) == (404, "session_not_found")
+    response = client.get("/api/v1/sessions/current")  # nothing in progress any more
     assert (response.status_code, response.json()["error"]["code"]) == (404, "session_not_found")
