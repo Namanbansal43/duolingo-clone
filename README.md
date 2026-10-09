@@ -57,6 +57,43 @@ defaults to `http://localhost:8000`; set `API_URL` (see `frontend/.env.example`)
 | `npm run build` | Production build (type-checks too) |
 | `npm run lint` | ESLint |
 
+## Deployment
+
+The frontend runs on **Vercel** and the backend on **Railway**, each deployed from this repository's `main`
+branch on every push.
+
+```
+browser ──> Vercel (Next.js) ──/api/* rewrite──> Railway (FastAPI in Docker) ──> SQLite on a volume
+```
+
+**Backend on Railway** (`backend/Dockerfile`, `backend/railway.json`)
+
+1. New project → Deploy from GitHub repo → this repository.
+2. In the service's settings: Root Directory `backend`; Config file path `/backend/railway.json`; branch `main`.
+3. Add a volume to the service, mounted at `/data`. The image keeps the database at `/data/app.db`
+   (`DATABASE_URL`), so progress survives restarts and redeploys.
+4. Networking → Generate Domain. Railway sets `PORT` and the server listens on it.
+
+On first boot the API creates the schema and seeds the demo, so there is nothing else to run. Railway waits for
+`GET /api/health` to answer before switching traffic to a new deploy. The server runs a single worker, as
+SQLite allows one writer at a time.
+
+**Frontend on Vercel**
+
+1. Add New → Project → import this repository.
+2. Root Directory `frontend` (Vercel detects Next.js).
+3. Environment variable `API_URL` = the Railway domain, e.g. `https://duolingo-clone-production.up.railway.app`
+   (no trailing slash). It is read at build time by the `/api` rewrite, so redeploy after changing it.
+
+The browser only talks to the Vercel site; Vercel forwards `/api/...` to Railway, so no CORS setup is needed.
+
+To run the production image locally:
+
+```bash
+docker build -t duolingo-backend backend
+docker run -p 8000:8000 -v duolingo-data:/data duolingo-backend
+```
+
 ## Pages
 
 | Path | What it is |
