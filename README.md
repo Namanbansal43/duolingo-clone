@@ -17,6 +17,7 @@ runs on the server: the browser never sees an answer key and can't award itself 
 ## Contents
 
 - [Try it in two minutes](#try-it-in-two-minutes)
+- [The two ways in: "Get started" and "I already have an account"](#the-two-ways-in-get-started-and-i-already-have-an-account)
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Architecture](#architecture)
@@ -42,7 +43,8 @@ The landing page offers the same two ways in as duolingo.com:
 | **I already have an account** → LOG IN | **Alex**, the seeded demo account: partway through Unit 1, a 3-day streak, 30 XP, already in this week's Bronze league | Seeing every feature with data in it |
 | **Get started** | A brand-new **guest**: pick a course and a daily goal, start at the first node | The new-learner experience |
 
-The two are separate learners, so trying "Get started" never touches Alex's progress.
+The two are separate learners, so trying "Get started" never touches Alex's progress. How each path works is
+explained [below](#the-two-ways-in-get-started-and-i-already-have-an-account).
 
 Then, as Alex:
 
@@ -58,6 +60,98 @@ Then, as Alex:
 
 > The deployment is shared. Everyone who logs in plays the same Alex, so progress you see may be someone else's.
 > "Reset the demo" restores the starting point.
+
+---
+
+## The two ways in: "Get started" and "I already have an account"
+
+The brief says to assume a logged-in user, so there is no real sign-up or password. The app still offers both of
+duolingo.com's entrances, and they lead to **two separate learners** in the database:
+
+| | "Get started" | "I already have an account" |
+| --- | --- | --- |
+| Learner | **The guest** (`username: guest`, `is_guest: true`) | **Alex**, the demo account (`username: alex`) |
+| Starts with | Nothing: the first node, 0 XP, no streak, 5 hearts, 500 gems | Seeded progress: 3 lessons done, 30 XP, a 3-day streak, two achievements, a place in this week's Bronze league |
+| Profile | Not yet: asked to "Create a profile to save your progress!" | A full profile with stats, chart and achievements |
+| Leaderboard | Locked: counts down 10 lessons, then asks the learner to sign in | Competes in the weekly league with 29 rivals |
+| Progress kept | Until "Get started" is done again (which starts the guest over) | Until "Reset the demo" in Settings |
+
+```mermaid
+flowchart LR
+    landing["Landing page"]
+    welcome["/welcome<br/>course, Duo, daily goal"]
+    login["/log-in<br/>demo account, no password"]
+    guest(["Guest learner<br/>cookie learner=guest"])
+    alex(["Alex, the demo learner<br/>no cookie"])
+
+    landing -- "Get started" --> welcome
+    welcome -- "POST /me/onboarding" --> guest
+    landing -- "I already have an account" --> login
+    login -- "POST /me/sign-in" --> alex
+    guest -- "SIGN IN (leaderboard, menu, rail card)" --> login
+```
+
+### Path 1: "Get started" makes a new guest
+
+1. **Three screens at `/welcome`**, modelled on duolingo.com's onboarding:
+   - **"I want to learn..."** lists every course. Only Spanish has content; the others say "coming soon".
+   - **"Hi there! I'm Duo!"**
+   - **"What's your daily learning goal?"** offers 5, 10, 15 or 20 minutes, stored as 10, 20, 30 or 50 XP.
+2. **Nothing is saved until the last CONTINUE.** It then sends one `POST /api/v1/me/onboarding` with the course,
+   the daily goal and the browser's time zone, so streak days follow the learner's own midnight.
+3. **The server sets up the guest:**
+   - The first time, it creates the one `guest` row in `users`. Every later time, it clears that row's history
+     (lessons, answers, XP, path progress, achievements) and resets its stats, so the guest starts over.
+   - Settings-page preferences, such as dark mode, carry over from whoever the browser was before.
+   - Alex's row is never touched.
+4. **The response sets a cookie,** `learner=guest` (HttpOnly, SameSite=Lax, for a year), and the browser opens
+   `/learn` at the first node.
+5. **As a guest, the learner plays normally.** Lessons, XP, hearts, streak, chests, achievements, the daily quest
+   and settings all work. What differs follows duolingo.com's treatment of visitors without a profile:
+   - The right rail shows **"Create a profile to save your progress!"** with CREATE A PROFILE ("coming soon")
+     and SIGN IN.
+   - **Profile** shows that prompt instead of a profile.
+   - **Shop** says "You earned 500 gems! Create a profile to spend them in the store!"
+   - **Leaderboard** counts down the 10 lessons that open leagues, like any new learner. After that it says
+     **"You need to sign in to join the leaderboard"**, with a SIGN IN button. Leagues need an account, so a
+     guest never joins one.
+
+### Path 2: "I already have an account" logs in as Alex
+
+1. **`/log-in`** is duolingo.com's log-in screen, measured against the real page. The username `alex` is filled
+   in and there is no password ("No password needed for the demo"). Duolingo's Google, Facebook and Apple buttons
+   are left out, as they would do nothing here.
+2. **LOG IN sends `POST /api/v1/me/sign-in`.** The response clears the `learner` cookie, and the browser opens
+   `/learn` as Alex.
+3. **Coming from the guest,** the guest's preferences carry over to Alex. The guest's progress stays with the
+   guest and is not merged, just as logging in to an existing account on duolingo.com doesn't merge a visitor's
+   progress.
+4. **Alex's progress is saved as it is made,** and stays until **Settings → Demo tools → Reset the demo**.
+
+The same `/log-in` page is behind every SIGN IN a guest sees: on the leaderboard, in the right rail and in the
+MORE menu. Its SIGN UP button leads to "Get started".
+
+### How the server knows who is asking
+
+One function, `get_current_user` in `backend/app/deps.py`, decides which learner a request belongs to. Every
+endpoint that acts as "me" goes through it:
+
+| The request... | Acts as |
+| --- | --- |
+| Carries the cookie `learner=guest`, and the guest exists | The guest |
+| Carries no cookie (a fresh browser, after logging in, or opening `/learn` directly) | Alex |
+| Carries the cookie, but the guest was removed by a demo reset | Alex |
+
+The cookie is HttpOnly, so page scripts can't read or change it. It is first-party: the browser only ever talks
+to the frontend's own domain, which forwards `/api/*` to the backend. **Reset the demo** deletes the guest,
+restores Alex, the rivals and real time, and clears the cookie, so the browser is Alex afterwards.
+
+The tests in `backend/tests/test_guest.py` cover each of these cases, including two browsers at once: one
+finishes "Get started" while the other stays Alex.
+
+**Limits.** There is one demo account and one guest. On the hosted demo, everyone who logs in shares Alex, and two
+people in "Get started" at the same moment share the guest. Real accounts would replace `get_current_user` with a
+lookup of the signed-in user, and nothing else would need to change.
 
 ---
 
@@ -373,8 +467,9 @@ Step-by-step setup instructions are in [DOCUMENTATION.md](DOCUMENTATION.md#deplo
 ## Assumptions and trade-offs
 
 - **A logged-in user is assumed, as the brief allows.** The demo learner (`alex`) is that user. "Get started"
-  creates a separate guest, remembered by an HttpOnly cookie, and logging in returns the browser to Alex. There
-  is no password or real sign-up; real auth would replace a single function (`get_current_user`).
+  creates a separate guest, remembered by an HttpOnly cookie, and logging in returns the browser to Alex (see
+  [the two ways in](#the-two-ways-in-get-started-and-i-already-have-an-account)). There is no password or real
+  sign-up; real auth would replace a single function (`get_current_user`).
 - **Shared demo state.** There is one demo account and one guest, so visitors to the hosted demo share them.
   "Reset the demo" restores the starting point.
 - **Hearts regenerate every 30 minutes** (Duolingo takes hours), so a reviewer can see it happen.
