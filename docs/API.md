@@ -25,6 +25,8 @@ examples show a learner partway through Unit 1.
 | POST | [`/api/v1/me/hearts/refill`](#post-apiv1meheartsrefill) | Refill hearts for 350 gems |
 | GET | [`/api/v1/me/achievements`](#get-apiv1meachievements) | Every achievement with the learner's level and progress |
 | GET | [`/api/v1/me/xp-history`](#get-apiv1mexp-history) | XP per day for the last few days (the profile's chart) |
+| GET | [`/api/v1/me/settings`](#get-apiv1mesettings) | The learner's preferences from the settings page |
+| PATCH | [`/api/v1/me/settings`](#patch-apiv1mesettings) | Change some preferences |
 | GET | [`/api/v1/leaderboard`](#get-apiv1leaderboard) | This week's league, ranked |
 | POST | [`/api/v1/sessions`](#post-apiv1sessions) | Start a lesson, or practice a finished node |
 | GET | [`/api/v1/sessions/current`](#get-apiv1sessionscurrent) | The session in progress |
@@ -32,6 +34,10 @@ examples show a learner partway through Unit 1.
 | POST | [`/api/v1/sessions/{session_id}/answers`](#post-apiv1sessionssession_idanswers) | Answer one exercise; graded on the server |
 | POST | [`/api/v1/sessions/{session_id}/complete`](#post-apiv1sessionssession_idcomplete) | Finish the session: XP, streak, path progress |
 | POST | [`/api/v1/sessions/{session_id}/quit`](#post-apiv1sessionssession_idquit) | Leave a session early |
+| GET | [`/api/v1/demo/clock`](#get-apiv1democlock) | Demo tools: how far the app's clock runs ahead |
+| POST | [`/api/v1/demo/clock/advance`](#post-apiv1democlockadvance) | Demo tools: move the app's clock forward a day |
+| POST | [`/api/v1/demo/hearts/empty`](#post-apiv1demoheartsempty) | Demo tools: lose every heart |
+| POST | [`/api/v1/demo/reset`](#post-apiv1demoreset) | Demo tools: back to the seeded state and real time |
 
 ## Conventions
 
@@ -40,6 +46,9 @@ examples show a learner partway through Unit 1.
   `backend/app/deps.py`.
 - **JSON in, JSON out.** Send `Content-Type: application/json` with request bodies.
 - **Times** are ISO 8601 in UTC with a `Z` suffix, e.g. `2026-10-08T12:20:00Z`. IDs are integers.
+- **The app's clock.** "Now" for every endpoint is real time plus any days advanced with the
+  [demo tools](#demo-tools). [Me](#me) carries it as `now`, so a client can measure countdowns
+  (`next_heart_at`, `week_ends_at`) from it rather than from the device's clock.
 - **PATCH is partial.** Fields you leave out, or send as `null`, are not changed. Unknown or read-only fields are
   rejected with `422`, so a typo never fails silently.
 - **CORS.** Browsers may call the API from the origins in `CORS_ORIGINS` (default `http://localhost:3000`).
@@ -140,6 +149,7 @@ The learner, with stats as they are right now.
 | `gems` | integer | Gem balance |
 | `hearts` | [Hearts](#hearts) | Hearts right now |
 | `streak` | [Streak](#streak) | Streak as of today |
+| `now` | datetime | The app's current time: real time, or later after the demo tools advanced the clock |
 
 ### Hearts
 
@@ -283,6 +293,25 @@ never lost (every statistic measured only grows).
 | `day` | date | A calendar day in the learner's time zone, `YYYY-MM-DD` |
 | `xp` | integer | XP earned that day (lessons, practice and chests count); `0` for a day without any |
 
+### User settings
+
+The choices on the settings page's Preferences section, with duolingo.com's defaults.
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `sound_effects` | boolean | `true` | Sounds for right and wrong answers and finished lessons |
+| `animations` | boolean | `true` | Celebrations and other motion in the app |
+| `motivational_messages` | boolean | `true` | Encouragement in lessons, such as "5 in a row" |
+| `listening_exercises` | boolean | `true` | Include listening exercises in lessons |
+| `dark_mode` | string | `"system"` | `system` follows the device's light or dark setting; `on` or `off` overrides it |
+
+### Demo clock
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `days_ahead` | integer | Days the app's clock runs ahead of real time; `0` without time travel |
+| `now` | datetime | The app's current time, which every other endpoint goes by |
+
 ---
 
 ## GET /api/health
@@ -323,7 +352,7 @@ daily goal and the profile.
 
 ```json
 {
-  "id": 1,
+  "id": 30,
   "username": "alex",
   "display_name": "Alex",
   "joined_at": "2026-10-05T12:00:00Z",
@@ -351,7 +380,8 @@ daily goal and the profile.
     "length": 3,
     "extended_today": false,
     "longest": 3
-  }
+  },
+  "now": "2026-10-08T12:00:00Z"
 }
 ```
 
@@ -374,7 +404,8 @@ curl http://localhost:8000/api/v1/me
 
 ## PATCH /api/v1/me
 
-Changes the learner's own preferences and keeps their progress; the settings page will use it. Send only the
+Changes the learner's course, daily goal or time zone and keeps their progress; the settings page uses it
+for the daily goal. Send only the
 fields you want to change. (The "Get started" flow uses [`POST /api/v1/me/onboarding`](#post-apiv1meonboarding)
 instead, which starts the learner over.)
 
@@ -400,7 +431,7 @@ and returns the learner unchanged.
 
 ```json
 {
-  "id": 1,
+  "id": 30,
   "username": "alex",
   "display_name": "Alex",
   "joined_at": "2026-10-05T12:00:00Z",
@@ -428,7 +459,8 @@ and returns the learner unchanged.
     "length": 3,
     "extended_today": false,
     "longest": 3
-  }
+  },
+  "now": "2026-10-08T12:00:00Z"
 }
 ```
 
@@ -541,7 +573,7 @@ node `locked`, with `active_node_id` pointing at the first node.
 
 ```json
 {
-  "id": 1,
+  "id": 30,
   "username": "alex",
   "display_name": "Alex",
   "joined_at": "2026-10-08T12:00:00Z",
@@ -569,7 +601,8 @@ node `locked`, with `active_node_id` pointing at the first node.
     "length": 0,
     "extended_today": false,
     "longest": 0
-  }
+  },
+  "now": "2026-10-08T12:00:00Z"
 }
 ```
 
@@ -734,6 +767,97 @@ grouped by the learner's local date.
 
 ```bash
 curl "http://localhost:8000/api/v1/me/xp-history?days=7"
+```
+
+---
+
+## GET /api/v1/me/settings
+
+The learner's preferences from the settings page. The frontend loads them once when an app page opens, then
+applies dark mode and animations to the whole page, and the sound, motivational message and listening switches
+in lessons.
+
+**Request:** no parameters, no body.
+
+**Response `200 OK`:** a [User settings](#user-settings) object. The seeded learner has the defaults:
+
+```json
+{
+  "sound_effects": true,
+  "animations": true,
+  "motivational_messages": true,
+  "listening_exercises": true,
+  "dark_mode": "system"
+}
+```
+
+**Errors:** `503 learner_missing`.
+
+```bash
+curl http://localhost:8000/api/v1/me/settings
+```
+
+---
+
+## PATCH /api/v1/me/settings
+
+Changes some preferences. Send only the fields to change: the settings page sends one per switch or menu
+change, as duolingo.com saves each change at once. "Get started" keeps these (it only resets progress).
+
+**Request body:** any fields of [User settings](#user-settings).
+
+```json
+{
+  "dark_mode": "on",
+  "sound_effects": false
+}
+```
+
+**Response `200 OK`:** all the preferences after the change.
+
+```json
+{
+  "sound_effects": false,
+  "animations": true,
+  "motivational_messages": true,
+  "listening_exercises": true,
+  "dark_mode": "on"
+}
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 422 | `validation_error` | A value of the wrong kind, a dark mode other than `system`, `on` or `off`, or an unknown field |
+| 503 | `learner_missing` | The database has not been seeded |
+
+`422`, for `{"dark_mode": "dim"}`:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "The request is invalid.",
+    "details": [
+      {
+        "type": "literal_error",
+        "loc": ["body", "dark_mode"],
+        "msg": "Input should be 'system', 'on' or 'off'",
+        "input": "dim",
+        "ctx": { "expected": "'system', 'on' or 'off'" }
+      }
+    ]
+  }
+}
+```
+
+An unknown field such as `{"volume": 3}` gives `details[0].type` `extra_forbidden`.
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/me/settings \
+  -H "Content-Type: application/json" \
+  -d '{"dark_mode": "on"}'
 ```
 
 ---
@@ -1204,3 +1328,96 @@ out of hearts, `abandoned` otherwise. Nothing is earned or lost.
 **Response:** `204 No Content`.
 
 **Errors:** `404 session_not_found`; `409 session_finished`.
+
+---
+
+## Demo tools
+
+This clone's own endpoints, behind the settings page's Demo tools section (duolingo.com has nothing like them).
+There is one built-in learner and a day takes a real day, so these let a reviewer try what depends on time,
+and start over. None takes a body.
+
+## GET /api/v1/demo/clock
+
+How far the app's clock has been moved forward, and the time it shows now.
+
+**Response `200 OK`:** a [Demo clock](#demo-clock) object.
+
+```json
+{
+  "days_ahead": 0,
+  "now": "2026-10-08T12:00:00Z"
+}
+```
+
+```bash
+curl http://localhost:8000/api/v1/demo/clock
+```
+
+---
+
+## POST /api/v1/demo/clock/advance
+
+Moves the app's clock forward one day. Everything goes by it: the next day a lesson extends the streak and a
+day without one breaks it, hearts regenerate, rivals keep earning XP, and moving past Sunday ends the league
+week (the next [leaderboard](#get-apiv1leaderboard) read settles it). The clock only goes back through
+[reset](#post-apiv1demoreset).
+
+**Response `200 OK`:** the [Demo clock](#demo-clock) after the move.
+
+```json
+{
+  "days_ahead": 1,
+  "now": "2026-10-09T12:00:00Z"
+}
+```
+
+Afterwards [`GET /api/v1/me`](#get-apiv1me) returns `"now": "2026-10-09T12:00:00Z"` and, as the seeded
+learner's last lesson is two days back by then, `"streak": {"length": 0, "extended_today": false, "longest": 3}`.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/demo/clock/advance
+```
+
+---
+
+## POST /api/v1/demo/hearts/empty
+
+Takes every heart away, to try the out-of-hearts screen. They then regenerate as usual, one every 30 minutes.
+
+**Response `200 OK`:** the learner as a [Me](#me) object. After one advanced day (other fields omitted):
+
+```json
+{
+  "hearts": {
+    "current": 0,
+    "max": 5,
+    "next_heart_at": "2026-10-09T12:30:00Z",
+    "regen_minutes": 30
+  },
+  "now": "2026-10-09T12:00:00Z"
+}
+```
+
+Starting a lesson now fails with `409 out_of_hearts`.
+
+**Errors:** `503 learner_missing`.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/demo/hearts/empty
+```
+
+---
+
+## POST /api/v1/demo/reset
+
+Starts the demo again. The clock returns to real time, every learner (the rivals too) is deleted with all their
+progress, and the seed runs again, so the built-in learner is back to the [GET /api/v1/me](#get-apiv1me)
+example: a 3 day streak, 30 XP, 5 hearts, a profile (`is_guest: false`) and a place in this week's Bronze
+league. Preferences from the settings page are kept.
+
+**Response `200 OK`:** the new learner as a [Me](#me) object.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/demo/reset
+```

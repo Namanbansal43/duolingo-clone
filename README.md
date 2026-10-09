@@ -4,8 +4,8 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 
 | Part | Stack | Status |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile, leaderboard |
-| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course and rivals; learner, path, lesson, achievement and league API |
+| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile, leaderboard, settings, dark mode |
+| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course and rivals; learner, path, lesson, achievement, league, settings and demo-tools API |
 
 ## Running the backend
 
@@ -68,6 +68,8 @@ defaults to `http://localhost:8000`; set `API_URL` (see `frontend/.env.example`)
 | `/profile` | The learner's profile: statistics, XP this week, achievements (below) |
 | `/profile/achievements` | Every achievement with its progress ("View all") |
 | `/leaderboard` | This week's league: 30 learners ranked by XP (below) |
+| `/settings/preferences` | Sound, animations, motivational messages, listening exercises, daily goal and dark mode (below) |
+| `/settings/demo` | Demo tools: move the app's clock forward a day, empty the hearts, reset the demo (below) |
 
 ### "Get started" flow
 
@@ -198,6 +200,36 @@ finished #3 and advanced to the Silver League"...).
 - **Live rivals**: the rivals keep practising through the week (see the rules below), so ranks change between
   visits even without playing.
 
+### `/settings`: preferences, dark mode and demo tools
+
+Settings open from the sidebar's MORE menu (on phones, from the gear on the profile), as on duolingo.com.
+The Preferences page is measured against duolingo.com's own, opened as a guest.
+
+- **Lesson experience**: Duolingo's four switches, and each one does something here.
+  - *Sound effects*: the right, wrong and lesson-complete sounds.
+  - *Animations*: off stops motion across the app (celebrations, the bobbing START, animated illustrations).
+  - *Motivational messages*: the "5 in a row" streak inside a lesson.
+  - *Listening exercises*: off leaves them out of lessons, just as "Can't listen now" does mid-lesson.
+- **Daily goal**: the goal chosen in "Get started" (Casual, Regular, Serious, Intense), changeable here.
+- **Appearance**: Dark mode, *System default* (follows the device), *On* or *Off*. Dark mode uses
+  duolingo.com's own dark palette, read from its page: the page turns `#131F24`, cards `#202F36`, borders
+  `#37464F`, text near-white, and coloured buttons get dark text. It covers the app and the lesson; the landing
+  page and "Get started" stay light, as Duolingo's do.
+- **The menu**: Duolingo's settings sections, grouped as on its site (Account, Subscription, Support). Profile,
+  Notifications, Courses, Privacy settings, Choose a plan, Help Center and Feedback are the "settings
+  placeholders" the brief allows and say "coming soon". A guest sees Duolingo's shorter guest menu.
+- **Demo tools** (this clone's own section, not Duolingo's): with one built-in learner, and a day taking a real
+  day, these let a reviewer try what depends on time.
+  - *Advance a day* moves the app's clock forward 24 hours. Everything follows it: a lesson the next day
+    extends the streak and a day without one breaks it, hearts regenerate, rivals keep earning XP, and moving
+    past Sunday ends the league week with its promotion or demotion.
+  - *Empty hearts* takes every heart away, to see the out-of-hearts screen.
+  - *Reset the demo* puts everything back as first seeded (the learner, their history, the rivals and real
+    time) but keeps the preferences. It is also how a guest from "Get started" gets the demo learner back.
+
+Every change saves at once, as on Duolingo. The settings live on the server (`user_settings`); the browser only
+remembers the last dark mode choice so the next page load paints in the right theme before they arrive.
+
 ### Game rules so far
 
 | Rule | Value | Where |
@@ -216,7 +248,8 @@ finished #3 and advanced to the Silver League"...).
 | Leagues | Bronze, Silver, Gold, Sapphire, Ruby, Emerald, Amethyst, Pearl, Obsidian, Diamond. A week runs Monday to Sunday in the learner's time zone; 30 learners compete by XP earned that week. The top 7 move up a league and the bottom 5 down (none down from Bronze, none up from Diamond) | `backend/app/seed/data.py`, `backend/app/services/leagues.py` |
 | Rivals | 29 seeded learners, from keen to occasional. They follow the learner from league to league. Each rival's day (whether they practise, when, and how much XP) is fixed by their id and the date, and is written as real XP events whenever the leaderboard is read, so no background job runs | `backend/app/services/leagues.py` |
 | Achievements | Wildfire: longest streak of 3, 7, 14 ... 365 days (10 levels). Sage: 100, 250, 500 ... 30,000 XP (10 levels). Scholar: 5, 10, 25, 50 lessons. Sharpshooter: 3, 10, 25, 50 lessons without a mistake. Practice sessions count as lessons. Levels are checked when a session finishes and are never lost | `backend/app/seed/data.py`, `backend/app/services/achievements.py` |
-| New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak, as a guest without a profile | `backend/app/services/learner.py` |
+| New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak, as a guest without a profile; preferences are kept | `backend/app/services/learner.py` |
+| The app's clock | Real time plus the days advanced with the demo tools (`demo_clock`). Every request reads time from it, and `/me` returns it as `now` so the page's countdowns agree | `backend/app/services/demo.py`, `frontend/src/lib/clock.ts` |
 
 ### Demo data
 
@@ -227,7 +260,7 @@ extends. Those lessons have already earned level 1 of Wildfire (3-day streak) an
 without a mistake); two more sessions, practice included, unlock Scholar. Leaderboards normally open after 10
 lessons, but this learner is already in this week's Bronze League with the 29 rivals, whose XP runs from the
 Monday of the week the database was seeded. This is the learner that "I already have an account" opens. Finishing "Get started" replaces them with a brand-new guest at the first node;
-`python -m app.seed --reset` restores this starting point, profile included.
+"Reset the demo" in Settings (or `python -m app.seed --reset`) restores this starting point, profile included.
 
 The seed only ever adds what is missing, so it never rewrites content a database already has. After the course
 content changes (the lesson player step trimmed each lesson node to 2 lessons), reset an existing database with
@@ -235,7 +268,8 @@ content changes (the lesson player step trimmed each lesson node to 2 lessons), 
 
 ## Database
 
-19 tables covering course content, learner progress, lesson history, XP, achievements and leagues. The ER diagram,
+20 tables covering course content, learner progress and preferences, lesson history, XP, achievements, leagues
+and the demo clock. The ER diagram,
 the rules the database enforces and the design decisions are in [docs/DATABASE.md](docs/DATABASE.md).
 
 ## The logged-in learner
@@ -246,7 +280,7 @@ only code that decides who "me" is. Adding real authentication would mean replac
 
 "Get started" doesn't create a second learner either: it starts this one over as a guest (`users.is_guest`), who
 is asked to create a profile, as on duolingo.com. Creating a profile and signing in are "coming soon", so a guest
-stays a guest until the database is reset.
+stays a guest until "Reset the demo" in Settings brings back the demo learner.
 
 On a shared demo deployment, every visitor therefore sees and changes the same learner.
 
@@ -264,6 +298,8 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | POST | `/api/v1/me/hearts/refill` | Refill hearts for 350 gems |
 | GET | `/api/v1/me/achievements` | Every achievement with the learner's level and progress towards the next |
 | GET | `/api/v1/me/xp-history` | XP per day for the last 7 days (`?days=` up to 31), for the profile chart |
+| GET | `/api/v1/me/settings` | The learner's preferences: the four lesson switches and dark mode |
+| PATCH | `/api/v1/me/settings` | Change some of them |
 | GET | `/api/v1/leaderboard` | This week's league: standings, zones, time left, last week's result |
 | POST | `/api/v1/sessions` | Start the active node's next lesson, or practice a finished node |
 | GET | `/api/v1/sessions/current` | The session in progress (the lesson page plays it) |
@@ -271,6 +307,10 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | POST | `/api/v1/sessions/{session_id}/answers` | Grade one answer; wrong answers cost a heart in lessons |
 | POST | `/api/v1/sessions/{session_id}/complete` | Finish: XP, streak, path progress (or a heart, for practice), new achievement levels, this week's league |
 | POST | `/api/v1/sessions/{session_id}/quit` | Leave a session early |
+| GET | `/api/v1/demo/clock` | How many days the app's clock runs ahead, and its time now |
+| POST | `/api/v1/demo/clock/advance` | Move the app's clock forward a day |
+| POST | `/api/v1/demo/hearts/empty` | Lose every heart, to try the out-of-hearts screen |
+| POST | `/api/v1/demo/reset` | Everything back to the seeded state and real time; preferences kept |
 
 Every request and response, with real examples and every error code, is documented in
 [docs/API.md](docs/API.md). With the backend running, `/docs` serves the same reference interactively.

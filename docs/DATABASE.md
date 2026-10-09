@@ -1,6 +1,6 @@
 # Database design
 
-SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has **19 tables** in five groups:
+SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has **20 tables** in six groups:
 
 | Group | Tables | Changes at runtime? |
 | --- | --- | --- |
@@ -9,6 +9,7 @@ SQLite, accessed through SQLAlchemy 2 and versioned with Alembic. The schema has
 | Activity history | `lesson_sessions`, `session_answers`, `xp_events` | Append-only; cleared only when the learner starts over |
 | Achievements | `achievements`, `achievement_tiers` (seeded), `user_achievements` | Unlocks only |
 | Leagues | `leagues` (seeded), `league_memberships`, `rivals` | A row per learner per week; rivals' simulation clock |
+| Demo tools | `demo_clock` | One row, once a day has been advanced from the settings page |
 
 The guiding rule: **store what happened, derive everything else when it is read.** Locked nodes, live hearts,
 today's XP, the weekly leaderboard and the streak calendar are all computed from the rows below, so no background
@@ -115,7 +116,7 @@ erDiagram
         bool animations
         bool motivational_messages
         bool listening_exercises
-        bool dark_mode
+        string dark_mode "system | on | off"
     }
     user_skill_progress {
         int user_id PK, FK
@@ -190,7 +191,13 @@ erDiagram
         int active_days "1 to 7 a week"
         datetime simulated_until "XP written up to here"
     }
+    demo_clock {
+        int id PK "always 1"
+        int days_ahead "the app's clock is this far ahead"
+    }
 ```
+
+`demo_clock` stands alone: it belongs to the app, not to a learner.
 
 ## Rules the database enforces
 
@@ -211,6 +218,8 @@ Each one has a test in `backend/tests/test_constraints.py`.
 | `user_achievements` | A learner can only unlock a tier that exists | Composite FOREIGN KEY → `achievement_tiers` |
 | `league_memberships` | One league per learner per week; a final rank is 1 or more | PRIMARY KEY (user, week), CHECK |
 | `leagues`, `rivals` | Zone sizes never negative; a rival practises on 1 to 7 days a week and earns some XP | CHECK |
+| `user_settings` | Dark mode is `system`, `on` or `off` | CHECK … IN (…) |
+| `demo_clock` | A single row (`id = 1`); the clock never runs behind real time (`days_ahead >= 0`) | CHECK |
 
 SQLite ignores foreign keys unless they are switched on for each connection; `backend/app/core/db.py` does that.
 
@@ -225,6 +234,7 @@ SQLite ignores foreign keys unless they are switched on for each connection; `ba
 | A course someone is studying | Their `active_course_id` becomes NULL (`SET NULL`) | The learner stays |
 | A lesson session | Its XP stays, with `session_id` set to NULL (`SET NULL`) | XP already earned is kept |
 | A learner's history, when they finish "Get started" | Their progress, sessions, answers, XP events, unlocks and league weeks are deleted; the `users` row is reset and marked `is_guest`, settings kept | They start over as a new visitor, and there is one built-in learner |
+| Everything, on "Reset the demo" (settings page) | Every `users` row (rivals included) and so, by `CASCADE`, all their rows; `demo_clock` too. The seed then runs again, and the learner's preferences are copied back | The demo returns to its first state without touching content |
 
 ## How the six exercise types are stored
 
@@ -284,6 +294,13 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
   (`daily_xp`, `active_days`) and `simulated_until`: when the leaderboard is read, each rival's sessions since
   then are written as `xp_events`. A rival's day comes from a random generator seeded with their id and the
   date, so it is the same whenever it is worked out, and running it twice writes nothing twice.
+- **Demo time travel is one stored number.** "Advance a day" doesn't rewrite any timestamps: it raises
+  `demo_clock.days_ahead`, and every request reads the time from a clock that adds it to real time. Because
+  streaks, hearts, rivals and league weeks are all derived from timestamps on read, they all move forward
+  together, and resetting the demo is just deleting that row. It is a typed single-row table rather than a
+  generic key-value table, so the database can check it.
+- **Dark mode is a choice, not a flag.** duolingo.com offers System default, On and Off, so `dark_mode` stores
+  one of those three words; the browser resolves "system" against the device's setting.
 - **Fixed prices.** Shop items are fixed prices in code.
 - **Named constraints.** A naming convention (`backend/app/models/base.py`) gives every constraint and index a
   predictable name, so later migrations can refer to them.
@@ -291,7 +308,8 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
 ## Seed data
 
 The API seeds the database on startup, inserting only what is missing (`backend/app/seed/`), so restarts never
-overwrite progress. `python -m app.seed --reset` starts from scratch.
+overwrite progress. `python -m app.seed --reset` starts from scratch; "Reset the demo" in Settings does the same
+for learners but keeps the content and the learner's preferences.
 
 | What | Details |
 | --- | --- |
@@ -313,6 +331,7 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | `0004` | `listen` exercises ("Tap what you hear"): widens the `exercises.type` CHECK |
 | `0005` | `users.is_guest`: set when "Get started" starts the learner over, so the profile page asks them to create a profile; existing learners keep theirs (`false`) |
 | `0006` | `leagues`, `league_memberships` and `rivals` |
+| `0007` | `demo_clock`; `user_settings.dark_mode` becomes `system`, `on` or `off` (a stored "off" was only the old default, so it becomes `system`; "on" stays on) |
 
 Migrations run automatically when the API starts. On SQLite, Alembic changes a table by rebuilding it: copy,
 drop the original, rename. With foreign keys on, SQLite would treat that drop as deleting every row and cascade
