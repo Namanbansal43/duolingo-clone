@@ -78,9 +78,9 @@ export function MoreMenu({ trigger }: { trigger: (props: { open: boolean; toggle
               Help
             </button>
             {guest && (
-              <button type="button" role="menuitem" className={cn(ITEM, "h-10")} onClick={() => soon("Signing in")}>
+              <Link href="/log-in" role="menuitem" className={cn(ITEM, "h-10")} onClick={() => setOpen(false)}>
                 Sign in
-              </button>
+              </Link>
             )}
           </div>
         </div>

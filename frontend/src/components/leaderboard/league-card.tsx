@@ -9,18 +9,23 @@ import { cn } from "@/lib/cn";
 import { leagueBadge, leagueTitle } from "./league-art";
 
 /**
- * The right-rail league card on /learn: how many lessons until leaderboards open, then the learner's
- * league and rank this week.
+ * The right-rail league card on /learn: how many lessons until leaderboards open (or, for a guest who has
+ * done them, SIGN IN), then the learner's league and rank this week.
  */
 export function LeagueCard({ board }: { board: Leaderboard }) {
   if (!board.league) {
     const lessons = board.lessons_to_unlock;
     return (
       <RailCard>
-        <h2 className="text-[19px] leading-7 font-bold text-ink">Unlock Leaderboards!</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[19px] leading-7 font-bold text-ink">Unlock Leaderboards!</h2>
+          {board.sign_in_required && <CardLink href="/log-in">Sign in</CardLink>}
+        </div>
         <CardBody image="/app/cards/league-locked.svg" wide>
           <p className="text-[17px] leading-[25px] font-medium text-ink-soft">
-            Complete {lessons} more {lessons === 1 ? "lesson" : "lessons"} to start competing
+            {board.sign_in_required
+              ? "Sign in to start competing"
+              : `Complete ${lessons} more ${lessons === 1 ? "lesson" : "lessons"} to start competing`}
           </p>
         </CardBody>
       </RailCard>
@@ -32,12 +37,7 @@ export function LeagueCard({ board }: { board: Leaderboard }) {
     <RailCard>
       <div className="flex items-center justify-between">
         <h2 className="text-[19px] leading-7 font-bold text-ink">{leagueTitle(board.league)}</h2>
-        <Link
-          href="/leaderboard"
-          className="text-[15px] leading-[18px] font-bold tracking-[0.8px] text-duo-blue uppercase hover:brightness-110"
-        >
-          View league
-        </Link>
+        <CardLink href="/leaderboard">View league</CardLink>
       </div>
       <CardBody image={leagueBadge(board.league)}>
         {me ? (
@@ -52,6 +52,17 @@ export function LeagueCard({ board }: { board: Leaderboard }) {
         )}
       </CardBody>
     </RailCard>
+  );
+}
+
+function CardLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="text-[15px] leading-[18px] font-bold tracking-[0.8px] text-duo-blue uppercase hover:brightness-110"
+    >
+      {children}
+    </Link>
   );
 }
 

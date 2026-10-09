@@ -33,7 +33,11 @@ export const getMe = () => learner("/me");
 
 export const updateMe = (changes: MeUpdate) => learner("/me", patch(changes));
 
+/** Ends "Get started": this browser becomes a new guest learner (a cookie), leaving the demo learner alone. */
 export const completeOnboarding = (choices: Onboarding) => learner("/me/onboarding", post(choices));
+
+/** "I already have an account": this browser is the demo learner again, with their progress. */
+export const signIn = () => learner("/me/sign-in", post());
 
 export const refillHearts = () => learner("/me/hearts/refill", post());
 
@@ -77,5 +81,5 @@ export const advanceDemoDay = () => apiFetch<DemoClock>("/demo/clock/advance", p
 
 export const emptyHearts = () => learner("/demo/hearts/empty", post());
 
-/** Back to the seeded learner and real time; preferences are kept. */
+/** Back to the seeded learner and real time, and the guest is removed; preferences are kept. */
 export const resetDemo = () => learner("/demo/reset", post());

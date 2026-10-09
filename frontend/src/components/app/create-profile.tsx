@@ -1,6 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+
+import { Button, buttonClasses } from "@/components/ui/button";
 import { comingSoon } from "@/lib/coming-soon";
 
 import { RailCard } from "./right-rail";
@@ -8,8 +10,8 @@ import { RailCard } from "./right-rail";
 const buttonShape = "rounded-2xl text-[15px] tracking-[0.8px]";
 
 /**
- * CREATE A PROFILE and SIGN IN, which duolingo.com offers guests. There is one built-in learner and the
- * brief lets accounts stay simple, so both are "coming soon".
+ * CREATE A PROFILE and SIGN IN, which duolingo.com offers guests. The brief lets accounts stay simple, so
+ * creating a profile is "coming soon"; SIGN IN opens /log-in, which returns to the demo account.
  */
 export function CreateProfileButtons() {
   return (
@@ -17,9 +19,9 @@ export function CreateProfileButtons() {
       <Button size="lg" fullWidth className={buttonShape} onClick={() => comingSoon("Creating a profile")}>
         Create a profile
       </Button>
-      <Button variant="secondary" size="lg" fullWidth className={buttonShape} onClick={() => comingSoon("Signing in")}>
+      <Link href="/log-in" className={buttonClasses({ variant: "secondary", size: "lg", fullWidth: true, className: buttonShape })}>
         Sign in
-      </Button>
+      </Link>
     </div>
   );
 }

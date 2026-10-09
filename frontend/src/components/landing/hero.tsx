@@ -38,7 +38,7 @@ export function Hero({ ctaId }: { ctaId: string }) {
         <Link href="/welcome" className={buttonClasses({ size: "lg", fullWidth: true })}>
           Get started
         </Link>
-        <Link href="/learn" className={buttonClasses({ variant: "outline", size: "lg", fullWidth: true })}>
+        <Link href="/log-in" className={buttonClasses({ variant: "outline", size: "lg", fullWidth: true })}>
           I already have an account
         </Link>
       </div>

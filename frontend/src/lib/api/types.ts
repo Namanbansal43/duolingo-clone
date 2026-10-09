@@ -122,6 +122,8 @@ export type WeekResult = {
 export type Leaderboard = {
   unlocked: boolean;
   lessons_to_unlock: number;
+  /** A guest from "Get started" who has done enough lessons: leagues need an account, so they sign in. */
+  sign_in_required: boolean;
   leagues: League[];
   /** This week's league: joined, or the one the next lesson joins. Null while leaderboards are locked. */
   league: League | null;

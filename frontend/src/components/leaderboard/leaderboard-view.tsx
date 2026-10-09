@@ -59,6 +59,7 @@ export function LeaderboardView() {
 }
 
 function Subtitle({ board }: { board: Leaderboard }) {
+  if (board.sign_in_required) return <SignInToCompete />;
   if (!board.unlocked) {
     const lessons = board.lessons_to_unlock;
     return <StartLesson text={`Complete ${lessons} more ${lessons === 1 ? "lesson" : "lessons"} to start competing`} />;
@@ -92,6 +93,26 @@ function StartLesson({ text }: { text: string }) {
         })}
       >
         Start a lesson
+      </Link>
+    </>
+  );
+}
+
+/** A guest who has done enough lessons: leagues need an account, so they are sent to sign in. */
+function SignInToCompete() {
+  return (
+    <>
+      <p className="mt-5 text-[19px] leading-6 font-medium text-ink-soft">
+        You need to sign in to join the leaderboard
+      </p>
+      <Link
+        href="/log-in"
+        className={buttonClasses({
+          variant: "secondary",
+          className: "mt-5 h-12 w-64 rounded-2xl text-[15px] tracking-[0.8px]",
+        })}
+      >
+        Sign in
       </Link>
     </>
   );
