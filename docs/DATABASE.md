@@ -224,6 +224,8 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
 | Live hearts and "next heart in" | `users.hearts`, `hearts_updated_at` and the regeneration interval |
 | Displayed streak (0 once a day is missed) | `current_streak`, `last_streak_date` and today in the learner's time zone |
 | Today's XP, daily goal met | Sum of `xp_events.amount` for today's `local_date` |
+| The profile's "XP this week" chart | Sum of `xp_events.amount` per `local_date` over the last 7 days |
+| Progress towards an achievement's next level | `users.longest_streak` (Wildfire), `users.total_xp` (Sage), completed `lesson_sessions` (Scholar), those with `mistakes = 0` (Sharpshooter) |
 | Weekly leaderboard | Sum of `xp_events.amount` per user for this week's dates |
 | Streak calendar | Distinct `xp_events.local_date` values |
 | Lesson accuracy | `session_answers` of the session |
@@ -237,6 +239,10 @@ since a wrong pair costs a heart. A session's accuracy and "which exercises are 
   daily goal follow the learner's own calendar, so `xp_events.local_date` and `users.timezone` are stored too.
 - **Wide `users` row, separate settings.** All game state the app reads on every page sits on `users`.
   Preferences that only the settings page uses live in a 1:1 `user_settings` table.
+- **Achievement levels are stored; progress is not.** Every statistic an achievement measures only grows, so a
+  level could be worked out on read too. It is stored in `user_achievements` anyway, when a session is finished,
+  because that gives each level the time it was reached and lets the lesson's result screen announce exactly the
+  levels that session reached. Progress towards the next level is always read live.
 - **Path progress is a counter, not per-lesson rows.** Lessons inside a skill are played in order, so
   `lessons_completed` says exactly which ones are done.
 - **No league tables.** The demo has one league: the leaderboard is this week's XP, ranked. Shop items are fixed
@@ -253,9 +259,9 @@ overwrite progress. `python -m app.seed --reset` starts from scratch.
 | --- | --- |
 | Courses | 39 courses taught in English, in duolingo.com's order; only Spanish is available |
 | Spanish content | 3 units, each with 5 path nodes: two lesson nodes, a treasure chest, a lesson node, and a unit review (15 nodes). Lesson nodes have 2 lessons and reviews 1 (21 lessons). Unit 1 is playable: each of its 7 lessons has one exercise of every type (42 exercises). Units 2 and 3 have no exercises yet, so their lessons show "coming soon". Defined as data in `backend/app/seed/spanish.py`. |
-| Achievements | Wildfire (streak), Sage (XP), Scholar (lessons) and Sharpshooter (perfect lessons), 4 tiers each |
+| Achievements | Wildfire (longest streak: 3, 7, 14 ... 365 days) and Sage (total XP: 100, 250, 500 ... 30,000), with duolingo.com's 10 levels each; Scholar (lessons: 5, 10, 25, 50) and Sharpshooter (lessons without a mistake: 3, 10, 25, 50), 4 levels each. Defined in `backend/app/seed/data.py`; levels added there reach existing databases on the next start. |
 | The built-in learner | `alex`, studying Spanish with a 20 XP daily goal and 500 gems |
-| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. Finishing "Get started" clears it. |
+| Their history | 3 lessons finished on the 3 days before the first seed: the same rows a real lesson writes (a session, an XP event, path progress), plus a matching XP total and a 3-day streak. That history reaches level 1 of Wildfire and Sharpshooter: on every start the seed stores any level the learner's progress already reaches. Finishing "Get started" clears it all. |
 
 ## Migrations
 

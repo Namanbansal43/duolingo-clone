@@ -23,6 +23,8 @@ examples show a learner partway through Unit 1.
 | GET | [`/api/v1/courses/{course_id}/path`](#get-apiv1coursescourse_idpath) | A course's learning path with the learner's progress |
 | POST | [`/api/v1/skills/{skill_id}/open-chest`](#post-apiv1skillsskill_idopen-chest) | Open a treasure chest on the path |
 | POST | [`/api/v1/me/hearts/refill`](#post-apiv1meheartsrefill) | Refill hearts for 350 gems |
+| GET | [`/api/v1/me/achievements`](#get-apiv1meachievements) | Every achievement with the learner's level and progress |
+| GET | [`/api/v1/me/xp-history`](#get-apiv1mexp-history) | XP per day for the last few days (the profile's chart) |
 | POST | [`/api/v1/sessions`](#post-apiv1sessions) | Start a lesson, or practice a finished node |
 | GET | [`/api/v1/sessions/current`](#get-apiv1sessionscurrent) | The session in progress |
 | GET | [`/api/v1/sessions/{session_id}`](#get-apiv1sessionssession_id) | One session |
@@ -82,7 +84,7 @@ All error codes the API returns today:
 | 409 | `hearts_full` | Hearts are already full | `POST /api/v1/me/hearts/refill` |
 | 409 | `not_enough_gems` | Fewer than 350 gems | `POST /api/v1/me/hearts/refill` |
 | 409 | `chest_already_opened` | The chest was opened before | `POST .../skills/{id}/open-chest` |
-| 422 | `validation_error` | The body is not valid JSON, misses a required field, has an invalid value or an unknown field, or an id in the URL isn't a whole number | Every endpoint with a body or an id in the URL |
+| 422 | `validation_error` | The body is not valid JSON, misses a required field, has an invalid value or an unknown field, an id in the URL isn't a whole number, or a query parameter is out of range | Every endpoint with a body, an id in the URL or a query parameter |
 | 422 | `invalid_answer` | The answer uses the wrong field for the exercise type, or options that aren't the exercise's | `POST .../sessions/{id}/answers` |
 | 500 | `internal_error` | An unexpected server error (the details are logged on the server, never sent) | Any endpoint |
 | 503 | `learner_missing` | The database has not been seeded with the built-in learner | Every endpoint that acts as the learner |
@@ -92,7 +94,7 @@ Each entry in `details` describes one problem:
 | Field | Description |
 | --- | --- |
 | `type` | Kind of problem, e.g. `literal_error`, `extra_forbidden`, `json_invalid`, `value_error`, `int_parsing`, `missing` |
-| `loc` | Where it is: `["body", "<field>"]`, or `["path", "<parameter>"]` for an id in the URL |
+| `loc` | Where it is: `["body", "<field>"]`, `["path", "<parameter>"]` for an id in the URL, or `["query", "<parameter>"]` |
 | `msg` | What is wrong |
 | `input` | The value that was sent |
 | `ctx` | Extra context for some types, e.g. the allowed values |
@@ -132,7 +134,7 @@ The learner, with stats as they are right now.
 | `daily_goal_xp` | integer | XP per day: `10` Casual, `20` Regular, `30` Serious, `50` Intense |
 | `total_xp` | integer | All XP ever earned |
 | `xp_today` | integer | XP earned today, in the learner's time zone. Compare with `daily_goal_xp` for the daily goal. |
-| `lessons_completed` | integer | Lessons finished so far (leaderboards open after 10) |
+| `lessons_completed` | integer | Lessons and practice sessions finished so far (leaderboards open after 10) |
 | `gems` | integer | Gem balance |
 | `hearts` | [Hearts](#hearts) | Hearts right now |
 | `streak` | [Streak](#streak) | Streak as of today |
@@ -243,6 +245,30 @@ Shuffled lists keep the same order for the whole session, so a reload doesn't mo
 | `streak` | object | `{"length", "longest", "extended"}`; `extended` is true when this was today's first finished session |
 | `hearts` | [Hearts](#hearts) | After this session (practice gives one back) |
 | `node` | object | `{"id", "lessons_completed", "lessons_total", "completed"}`: the path node's progress |
+| `achievements` | array of [Achievement](#achievement) | Achievements that went up a level with this session, at their new level. Usually empty. |
+
+### Achievement
+
+An achievement with the learner's progress. Levels are reached by passing thresholds of one statistic, and are
+never lost (every statistic measured only grows).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `key` | string | Stable code name: `wildfire`, `sage`, `scholar`, `sharpshooter`. The app picks the badge art by it. |
+| `title` | string | Display name, e.g. `Wildfire` |
+| `level` | integer | Highest level reached; `0` before the first |
+| `max_level` | integer | Number of levels (10 for Wildfire and Sage, 4 for the others). The badge turns gold at this level. |
+| `value` | integer | The learner's statistic: longest streak (Wildfire), total XP (Sage), lessons and practice sessions finished (Scholar), those without a mistake (Sharpshooter) |
+| `goal` | integer | The next level's threshold; the last level's once every level is reached |
+| `description` | string | The goal in words, e.g. `Reach a 7 day streak` |
+| `unlocked_at` | datetime or null | When the current level was reached; null at level 0 |
+
+### Daily XP
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `day` | date | A calendar day in the learner's time zone, `YYYY-MM-DD` |
+| `xp` | integer | XP earned that day (lessons, practice and chests count); `0` for a day without any |
 
 ---
 
@@ -590,6 +616,110 @@ curl -X POST http://localhost:8000/api/v1/me/hearts/refill
 
 ---
 
+## GET /api/v1/me/achievements
+
+Every achievement in display order, with the learner's level and progress towards the next level. The profile
+shows them as badges; "View all" lists them with a progress bar each. Levels are stored when a session is
+finished (and, for progress made before an achievement existed, when the server starts).
+
+**Request:** no parameters, no body.
+
+**Response `200 OK`:** an array of [Achievement](#achievement). The seeded learner, whose 3-day streak and 3
+lessons without a mistake have earned level 1 of Wildfire and Sharpshooter:
+
+```json
+[
+  {
+    "key": "wildfire",
+    "title": "Wildfire",
+    "level": 1,
+    "max_level": 10,
+    "value": 3,
+    "goal": 7,
+    "description": "Reach a 7 day streak",
+    "unlocked_at": "2026-10-08T12:00:00Z"
+  },
+  {
+    "key": "sage",
+    "title": "Sage",
+    "level": 0,
+    "max_level": 10,
+    "value": 30,
+    "goal": 100,
+    "description": "Earn 100 XP",
+    "unlocked_at": null
+  },
+  {
+    "key": "scholar",
+    "title": "Scholar",
+    "level": 0,
+    "max_level": 4,
+    "value": 3,
+    "goal": 5,
+    "description": "Complete 5 lessons",
+    "unlocked_at": null
+  },
+  {
+    "key": "sharpshooter",
+    "title": "Sharpshooter",
+    "level": 1,
+    "max_level": 4,
+    "value": 3,
+    "goal": 10,
+    "description": "Complete 10 lessons without a mistake",
+    "unlocked_at": "2026-10-08T12:00:00Z"
+  }
+]
+```
+
+**Errors:** `503 learner_missing`.
+
+```bash
+curl http://localhost:8000/api/v1/me/achievements
+```
+
+---
+
+## GET /api/v1/me/xp-history
+
+XP earned on each of the last few days, ending today in the learner's time zone, oldest first. Days without XP
+are included with `0`, so a chart can plot the list as it comes. It is a sum over the XP ledger (`xp_events`)
+grouped by the learner's local date.
+
+**Query parameters**
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `days` | integer, 1 to 31 | `7` | How many days, ending today |
+
+**Response `200 OK`:** an array of [Daily XP](#daily-xp). The seeded learner after one lesson today
+(2026-10-08), with the demo history's lesson on each of the 3 days before:
+
+```json
+[
+  { "day": "2026-10-02", "xp": 0 },
+  { "day": "2026-10-03", "xp": 0 },
+  { "day": "2026-10-04", "xp": 0 },
+  { "day": "2026-10-05", "xp": 10 },
+  { "day": "2026-10-06", "xp": 10 },
+  { "day": "2026-10-07", "xp": 10 },
+  { "day": "2026-10-08", "xp": 10 }
+]
+```
+
+**Errors**
+
+| Status | `code` | Cause |
+| --- | --- | --- |
+| 422 | `validation_error` | `days` outside 1 to 31; `details` holds `{"type": "less_than_equal", "loc": ["query", "days"], "msg": "Input should be less than or equal to 31", "input": "40", "ctx": {"le": 31}}` |
+| 503 | `learner_missing` | The database has not been seeded |
+
+```bash
+curl "http://localhost:8000/api/v1/me/xp-history?days=7"
+```
+
+---
+
 ## GET /api/v1/courses
 
 Every course in display order, the same order as the course strip on the landing page, with how many learners
@@ -897,7 +1027,8 @@ The first of four pairs (`exercise_completed` turns true with the last):
 Finishes a session once every exercise is answered (listening exercises may be skipped with "Can't listen
 now"). It writes an XP event (10 XP for a lesson, 5 for practice), extends the streak if this is the first
 finished session of the learner's day, and then either moves the path node on (a lesson) or gives a heart back
-(practice). The node is completed with its last lesson, which unlocks the next one.
+(practice). The node is completed with its last lesson, which unlocks the next one. Finally it stores any
+achievement levels the learner has now reached and lists them, so the result screens can announce them.
 
 **Request:** no body.
 
@@ -928,8 +1059,27 @@ later, with one mistake:
     "lessons_completed": 2,
     "lessons_total": 2,
     "completed": true
-  }
+  },
+  "achievements": []
 }
+```
+
+Practising "Say hello" straight after makes 5 finished sessions, which reaches Scholar level 1. That response
+ends with:
+
+```json
+  "achievements": [
+    {
+      "key": "scholar",
+      "title": "Scholar",
+      "level": 1,
+      "max_level": 4,
+      "value": 5,
+      "goal": 10,
+      "description": "Complete 10 lessons",
+      "unlocked_at": "2026-10-08T12:04:00Z"
+    }
+  ]
 ```
 
 **Errors**

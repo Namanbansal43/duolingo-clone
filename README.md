@@ -4,8 +4,8 @@ A full-stack Duolingo-style learning app built for an SDE assignment.
 
 | Part | Stack | Status |
 | --- | --- | --- |
-| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons |
-| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course; learner, path and lesson API |
+| `frontend/` | Next.js 16 (App Router, TypeScript), Tailwind CSS v4 | Landing page, "Get started" flow, `/learn`, lessons, profile |
+| `backend/` | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, SQLite | Full schema, seeded Spanish course; learner, path, lesson and achievement API |
 
 ## Running the backend
 
@@ -65,6 +65,8 @@ defaults to `http://localhost:8000`; set `API_URL` (see `frontend/.env.example`)
 | `/welcome` | The "Get started" flow (below) |
 | `/learn` | The learning path, inside the app shell (below) |
 | `/lesson` | The lesson being played, full screen (below) |
+| `/profile` | The learner's profile: statistics, XP this week, achievements (below) |
+| `/profile/achievements` | Every achievement with its progress ("View all") |
 
 ### "Get started" flow
 
@@ -135,7 +137,8 @@ Each exercise type has its own view, picked by a small registry (`frontend/src/c
   out-of-hearts dialog offers a refill for 350 gems, practice to earn one back, or ending the lesson.
 - **Quitting** after any progress asks "Wait, don't go! You'll lose your progress if you quit now".
 - **The end**: "Lesson complete!" with three cards (XP, accuracy, time), then, for the day's first lesson, the
-  streak screen with the flame, the new count and the days around today.
+  streak screen with the flame, the new count and the days around today, then "Achievement unlocked!" for each
+  achievement that went up a level, with its badge and what the next level needs.
 - **Audio** (a bonus in the brief): Spanish is read aloud with the browser's text-to-speech; speaker buttons
   replay it, and "Can't listen now" skips the listening exercises. Sound effects are synthesised with the Web
   Audio API, so there are no audio files.
@@ -145,6 +148,27 @@ Each exercise type has its own view, picked by a small registry (`frontend/src/c
 The page plays the learner's session in progress (`GET /api/v1/sessions/current`), so a refresh carries on where
 it was. Answers are graded only by the server, and the browser never receives the solutions, except the
 sentence a listening exercise reads aloud (text-to-speech needs the text).
+
+### `/profile`: profile and achievements
+
+Laid out like a profile on duolingo.com, measured against public profiles there at 1280 px (a guest can't open
+their own profile, so the page combines that layout with what only the owner sees: progress towards each
+achievement's next level).
+
+- **Header**: Duolingo's empty avatar on a light blue banner, name, username, join month, Following and Followers
+  (friends are a placeholder the brief allows, so both are 0 and say "coming soon"), and the course flag.
+- **Statistics**: day streak, total XP, current league and top 3 finishes. Leagues arrive with the leaderboard, so
+  for now the league reads "None" and there are no top 3 finishes.
+- **XP this week**: a line chart of the last 7 days from `GET /api/v1/me/xp-history`, drawn as plain SVG at
+  duolingo.com's proportions, with the week's total.
+- **Achievements**: a row of badges in Duolingo's artwork, coloured once reached and gold at the top level;
+  "View all" opens `/profile/achievements`, which lists each one with its level, a progress bar ("3/7") and the
+  next goal. Both read `GET /api/v1/me/achievements`.
+- **Right rail**: the stats bar and a Following / Followers card with Duolingo's empty states.
+
+**Where XP shows.** The brief lists XP in the top bar, but duolingo.com's top bar has only the flag, streak, gems
+and hearts. To keep that bar identical, total XP is on the profile, today's XP is in the Daily Quests card on
+`/learn`, and each lesson's XP is on its result screen.
 
 ### Game rules so far
 
@@ -161,6 +185,7 @@ sentence a listening exercise reads aloud (text-to-speech needs the text).
 | Streak | The day's first finished lesson or practice adds a day (or starts again at 1 after a gap), in the learner's time zone; reads 0 after a missed day | `backend/app/services/streak.py` |
 | Daily goal | 10, 20, 30 or 50 XP (shown as 5, 10, 15, 20 minutes) | `backend/app/models/learner.py` |
 | Leaderboards | Open after 10 finished lessons | `frontend/src/components/app/right-rail.tsx` |
+| Achievements | Wildfire: longest streak of 3, 7, 14 ... 365 days (10 levels). Sage: 100, 250, 500 ... 30,000 XP (10 levels). Scholar: 5, 10, 25, 50 lessons. Sharpshooter: 3, 10, 25, 50 lessons without a mistake. Practice sessions count as lessons. Levels are checked when a session finishes and are never lost | `backend/app/seed/data.py`, `backend/app/services/achievements.py` |
 | New learner | Starts at the first node with 500 gems, 5 hearts, no XP and no streak | `backend/app/services/learner.py` |
 
 ### Demo data
@@ -168,7 +193,9 @@ sentence a listening exercise reads aloud (text-to-speech needs the text).
 The seeded learner starts partway through Unit 1, so every node state is visible straight away: "Say hello"
 finished, "Introduce yourself" at lesson 2 of 2, and the rest locked. Behind that are 3 real lessons on the 3
 days before the database was first seeded: sessions, XP events, 30 XP and a 3-day streak that today's first lesson
-extends. This is the learner that "I already have an account" opens. Finishing "Get started" replaces them
+extends. Those lessons have already earned level 1 of Wildfire (3-day streak) and Sharpshooter (3 lessons
+without a mistake); two more sessions, practice included, unlock Scholar. This is the learner that "I already
+have an account" opens. Finishing "Get started" replaces them
 with a brand-new learner at the first node; `python -m app.seed --reset` restores this starting point.
 
 The seed only ever adds what is missing, so it never rewrites content a database already has. After the course
@@ -200,11 +227,13 @@ On a shared demo deployment, every visitor therefore sees and changes the same l
 | GET | `/api/v1/courses/{course_id}/path` | The course's units and nodes, each completed, active or locked |
 | POST | `/api/v1/skills/{skill_id}/open-chest` | Open the treasure chest the learner has reached (+20 gems) |
 | POST | `/api/v1/me/hearts/refill` | Refill hearts for 350 gems |
+| GET | `/api/v1/me/achievements` | Every achievement with the learner's level and progress towards the next |
+| GET | `/api/v1/me/xp-history` | XP per day for the last 7 days (`?days=` up to 31), for the profile chart |
 | POST | `/api/v1/sessions` | Start the active node's next lesson, or practice a finished node |
 | GET | `/api/v1/sessions/current` | The session in progress (the lesson page plays it) |
 | GET | `/api/v1/sessions/{session_id}` | One session with its exercises, without solutions |
 | POST | `/api/v1/sessions/{session_id}/answers` | Grade one answer; wrong answers cost a heart in lessons |
-| POST | `/api/v1/sessions/{session_id}/complete` | Finish: XP, streak, path progress (or a heart, for practice) |
+| POST | `/api/v1/sessions/{session_id}/complete` | Finish: XP, streak, path progress (or a heart, for practice), new achievement levels |
 | POST | `/api/v1/sessions/{session_id}/quit` | Leave a session early |
 
 Every request and response, with real examples and every error code, is documented in
